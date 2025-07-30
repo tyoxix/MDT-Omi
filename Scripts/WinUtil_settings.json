@@ -1,0 +1,18 @@
+{
+  "WPFTweaks": [
+    "WPFTweaksDeleteTempFiles",
+    "WPFTweaksRightClickMenu",
+    "WPFTweaksDVR",
+    "WPFTweaksHome",
+    "WPFTweaksEdgeDebloat",
+    "WPFTweaksLoc",
+    "WPFTweaksEndTaskOnTaskbar"
+  ],
+  "Install": [],
+  "WPFFeature": [
+    "WPFFeatureEnableLegacyRecovery",
+    "WPFFeaturesdotnet",
+    "WPFFeatureDisableSearchSuggestions"
+  ],
+  "WPFInstall": []
+}

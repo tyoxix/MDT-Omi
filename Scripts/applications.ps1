@@ -81,8 +81,3 @@ Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'wi
 
 #HP
 Install-IfManufacturerMulti -RequiredManufacturers @("HP","Hewlett-Packard") -InstallCommand 'choco install hpsupportassistant -y'
-
-#Deinstallation Chocolatey
-if (Test-Path "$env:ProgramData\chocolatey") {
-	Remove-Item -Recurse -Force "$env:ProgramData\chocolatey"
-}
