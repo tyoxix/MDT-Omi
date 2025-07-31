@@ -1,20 +1,12 @@
-#--------------------------------------------------------------------------
-
-#Script mit Adminrechten neustarten
-Function Adminneustart {
-	If (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]"Administrator")) {
-		Start-Process powershell.exe "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" $PSCommandArgs" -WorkingDirectory $pwd -Verb RunAs
-		Exit
-	}
-}
-Adminneustart
 
 #--------------------------------------------------------------------------
 
-$ConfirmPreference = “None”
-$ErrorActionPreference = "SilentlyContinue"
+$ConfirmPreference = "None"
+$ErrorActionPreference = "Continue"
 
 #--------------------------------------------------------------------------
+
+start-transcript C:\Windows\applications.log
 
 function Install-IfManufacturerMulti {
     param(
@@ -55,14 +47,24 @@ function Install-IfManufacturerAndModel {
     }
 }
 
+$env:PATH += ";C:\ProgramData\chocolatey\bin"
 #--------------------------------------------------------------------------
 
-#Alle Geräte Standardprogramme
-winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+#WICHTIG!!: Jegliche Software, die als MSStore-App installiert wird, muss im Skript WindowsDeployment2.ps1 hinterlegt werden, da MSStore-Apps nur für den aktiven Benutzer installiert werden (in diesem Schritt ist das noch Administrator). 
+#Am besten hinterlegt ihr die MSStore-Apps sowohl hier als auch in WindowsDeployment2.ps1
+#Ob es sich bei einer installation um ein Programm oder eine App handelt sehr ihr, wenn ihr in cmd nach dem Program sucht: winget search "Name oder ID"
+#Wenn als Quelle winget steht, ist es ein Programm. Wenn msstore steht, eine MSStore-App.
+#Chocolatey installationen sind immer Programme
+
+#Edit: Kopiert einfach den ganzen Block ins WindowsDeployment2.ps1. Bereits vorhandene Software wird übersprungen, nicht vorhandene installiert.
+
+#Alle Geräte Standardprogramme //Da Winget im OOBE nicht funktioniert zwingend mit chocolatey installieren!
+choco install adobereader -y
+choco install firefox -y
+choco install vlc -y
+choco install teamviewer.host -y
+choco install 7zip -y
+
 
 #Lenovo Thinkpad (Commercial Vantage)
 Install-IfManufacturerAndModel `
@@ -93,3 +95,5 @@ Install-IfManufacturerAndModel `
   -RequiredManufacturers @("Microsoft") `
   -RequiredModels @("Surface") `
   -InstallCommand 'winget install -e --id 9WZDNCRFJB8P --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+stop-transcript

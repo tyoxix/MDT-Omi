@@ -53,14 +53,13 @@ Adminneustart
 
 #--------------------------------------------------------------------------
 
-$ConfirmPreference = “None”
-$ErrorActionPreference = "SilentlyContinue"
+$ConfirmPreference = "None"
+$ErrorActionPreference = "Continue"
 
 #--------------------------------------------------------------------------
 clear
 
-start-transcript C:\Windows\Deploy.log
-
+start-transcript C:\Windows\WindowsDeployment.log
 Stop-Process -ProcessName explorer -Force
 
 #Windows Festplatte zu "System" umbenennen
@@ -206,18 +205,6 @@ If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer")) {
 Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowRecent" -Type DWord -Value 0 -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowFrequent" -Type DWord -Value 0 -Force | Out-Null
 
-#Unpin Microsoft Edge from Taskbar
-Write-Output "Microsoft Edge wird von der Taskleiste entfernt..."
-Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband\Favorites" -Recurse -Force
-
-#Unpin Chat from Taskbar
-Write-Output "Chat wird von der Taskleiste entfernt..."
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
-
-#Unpin Widgets from Taskbar
-Write-Output "Widgets wird von der Taskleiste entfernt..."
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Type DWord -Value 0 | Out-Null
-
 #Enabling NumLock after startup
 Write-Host "Aktiviere NumLock dauerhaft..."
    If (!(Test-Path "HKU:")) {
@@ -229,7 +216,23 @@ Write-Host "Aktiviere NumLock dauerhaft..."
        $wsh = New-Object -ComObject WScript.Shell
        $wsh.SendKeys('{NUMLOCK}')
    }
-   
+
+#Windows 11 Rechtsklick deaktivieren
+Write-Output "Windows 11 Rechtsklick wird deaktiviert..."
+Remove-Item "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Recurse -Force | Out-Null
+
+#Unpin Microsoft Edge from Taskbar
+Write-Output "Microsoft Edge wird von der Taskleiste entfernt..."
+Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband\Favorites" -Recurse -Force | Out-Null
+
+#Unpin Chat from Taskbar
+Write-Output "Chat wird von der Taskleiste entfernt..."
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
+
+#Unpin Widgets from Taskbar
+Write-Output "Widgets wird von der Taskleiste entfernt..."
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Type DWord -Value 0 | Out-Null
+
 #Find the smallest disk (without USB)
 $OSDiskNumber = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -Last 1 | Select-Object -ExpandProperty Number
 
@@ -255,12 +258,6 @@ C:\Windows\SysWOW64\OneDriveSetup.exe /uninstall
 }
 OneDrivelöschen
 
-#Alle Verknüpfungen auf dem Desktop löschen
-Function LöscheDesktop {
-    Write-Output "Alle Verknüpfungen auf dem Desktop werden gelöscht..."
-    Remove-Item "C:\Users\*\Desktop\*.lnk" }
-LöscheDesktop
-
 #Löschen von Temporären Windows Dateien / chocolatey Dateien
 Function Tempslöschen {
     Write-Output "Temporäre Dateien werden gelöscht..."
@@ -274,8 +271,10 @@ Tempslöschen
 #Windows Aktivierung
 Start-Process -FilePath "cscript.exe" -ArgumentList "//nologo $env:windir\system32\slmgr.vbs -ato" -NoNewWindow -Wait
 
+#--------------------------------------------------------------------------
+
 Write-Output ""
-Read-Host "Drücke Enter um das Gerät neu zu starten"
+#Read-Host "Drücke Enter um das Gerät neu zu starten"
 
 Remove-Item -Path $MyInvocation.MyCommand.Source -Force
 Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
