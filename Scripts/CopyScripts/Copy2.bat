@@ -1,0 +1,2 @@
+COPY "\\MDTOMI-WS1\DeploymentShare$\Scripts\RunPS1.bat" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat"
+COPY "\\MDTOMI-WS1\DeploymentShare$\Scripts\RunPS2.bat" "C:\Windows\RunPS2.bat"

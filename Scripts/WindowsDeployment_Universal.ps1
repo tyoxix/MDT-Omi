@@ -1,44 +1,43 @@
 <#
-Autor: Tobias Hösli
-Letzte Änderungen: 30.07.2025
+Autor: Tobias Hösli / Omikron Data AG
+Letzte Änderungen: 31.07.2025
 
 Neue, automatisiertere Version von WindowsDeployment.ps1.
 Dieses Script führt folgende Aufgaben aus:
 
 Konfigurationen:
-    -Windows Festplatte in "System" umbenennen
-    -Anzeigen von "Dieser PC" auf Desktop
-    -Anzeigen des Benutzerordners auf Dektop
-    -Taskansicht-Schaltfläche Ausschalten
-    -Kontakte auf der Taskleiste Ausschalten
-    -Suchsymbol auf der Taskleiste aktivieren
-    -Benutzerkontensteuerung Ausschalten
-    -Kleine Symbole in Systemsteuerung festlegen
-    -Defragmentierung Ausschalten
-    -Appvorschläge Ausschalten
-    -ScmartScreen deaktivieren
-    -Windows Light-Mode deaktivieren
-    -Zuletzt hinzugefügte Apps ausschalten
-    -Explorer öffnen für "Dieser PC"
-    -Alle Icons werden von der Taskleiste gelöst
-    -Tastaturlayout Französisch (Schweiz) & Deutsch (Deutschland) löschen
-    -Gelegentliche Appvorschläge ausschalten                    
-    -Löschen von "Fax" und "Microsoft XPS Document Writer" Druckern 
-    -Uhrzeit Synchronisieren
-    -Explorer Datenschutzeinstellungen konfigurieren
-    -Windows Action Center konfigurieren
-    -Explorer Menuleiste herunterklappen
+    Windows Festplatte in "System" umbenennen
+    Anzeigen von "Dieser PC" auf Desktop
+    Anzeigen des Benutzerordners auf Dektop
+    Kleine Symbole in Systemsteuerung festlegen
+    Defragmentierung Ausschalten
+    Appvorschläge Ausschalten
+    ScmartScreen deaktivieren
+    Windows Light-Mode deaktivieren
+    Zuletzt hinzugefügte Apps ausschalten
+    Explorer öffnen für "Dieser PC"
+    Tastaturlayout Französisch (Schweiz) & Deutsch (Deutschland) löschen
+    Löschen von "Fax" und "Microsoft XPS Document Writer" Druckern
+    Uhrzeit Synchronisieren
+    Action Center deaktivieren (App Icons) / Benachrichtigungen anzeigen
+    Explorer Datenschutzoptionen
+    NumLock immer aktiviert
+    Taskleiste bereinigen
+    Sekundäre Festplatte als "Daten" formatieren
+    OneDrive löschen
+    Alle Verknüpfungen auf dem Desktop löschen
+    Löschen von Temporären Windows Dateien / chocolatey Dateien
+    Windows Aktivieren
+
 
 Rausputzen:
-    -Windows Apps
-    -Alle Verknüpfungen auf dem Desktop Löschen
-    -Temporäre Dateien
-    -Deinstallation oneDrive
+    Alle Verknüpfungen auf dem Desktop Löschen
+    Temporäre Dateien
+    Deinstallation OneDrive
 
 Diverses:
-    -Windows Aktivierung
-    -Wiederherstellungspunkt
-    -ToDo Liste
+    Windows Aktivierung
+    Wiederherstellungspunkt
 #>
 
 #--------------------------------------------------------------------------
@@ -280,7 +279,6 @@ Read-Host "Drücke Enter um das Gerät neu zu starten"
 
 Remove-Item -Path $MyInvocation.MyCommand.Source -Force
 Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
-Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\Vantage.bat" -Force
 Move-Item "C:\Windows\RunPS2.bat" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS2.bat"
 
 stop-transcript

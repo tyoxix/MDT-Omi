@@ -58,26 +58,38 @@ function Install-IfManufacturerAndModel {
 #--------------------------------------------------------------------------
 
 #Alle Geräte Standardprogramme
-winget install --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 
-#Lenovo Thinkpad
+#Lenovo Thinkpad (Commercial Vantage)
 Install-IfManufacturerAndModel `
   -RequiredManufacturers @("Lenovo") `
   -RequiredModels @("ThinkPad") `
-  -InstallCommand 'winget install "Lenovo Commercial Vantage" --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+  -InstallCommand 'winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
 
-#Lenovo Ideapad
+#Lenovo Ideapad (Vantage)
 Install-IfManufacturerAndModel `
   -RequiredManufacturers @("Lenovo") `
   -RequiredModels @("IdeaPad") `
-  -InstallCommand 'winget install "Lenovo Vantage" --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+  -InstallCommand 'winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
 
-#Acer
-Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'winget install "Care Center S" --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+#Acer (Care Center S)
+Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
 
-#HP
+#HP (Support Assistant)
 Install-IfManufacturerMulti -RequiredManufacturers @("HP","Hewlett-Packard") -InstallCommand 'choco install hpsupportassistant -y'
+
+#Dell (Command Update)
+Install-IfManufacturerMulti -RequiredManufacturers @("Dell") -InstallCommand 'winget install -e --id Dell.CommandUpdate --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+#Asus (MyAsus)
+Install-IfManufacturerMulti -RequiredManufacturers @("Asus") -InstallCommand 'winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+#Microsoft Surface (Surface)
+Install-IfManufacturerAndModel `
+  -RequiredManufacturers @("Microsoft") `
+  -RequiredModels @("Surface") `
+  -InstallCommand 'winget install -e --id 9WZDNCRFJB8P --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
