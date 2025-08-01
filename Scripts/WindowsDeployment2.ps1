@@ -61,24 +61,44 @@ start-transcript C:\Windows\WindowsDeployment2.log
 
 Write-Output "Benötigte Software wird installiert..."
 
-#Alle Geräte Standardprogramme
+#Alle Geräte Standardprogramme //Aus Redundanzgründen drin lassen, OOBE verhaltet sich bei Installationen manchmal komisch
 winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
 
-#Lenovo Thinkpad (Commercial Vantage)
-Install-IfManufacturerAndModel `
-  -RequiredManufacturers @("Lenovo") `
-  -RequiredModels @("ThinkPad") `
-  -InstallCommand 'winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+#Bei Microsoftgeräten wird die entsprechende Software automatisch per Windowsupdates installiert
 
-#Lenovo Ideapad (Vantage)
-Install-IfManufacturerAndModel `
-  -RequiredManufacturers @("Lenovo") `
-  -RequiredModels @("IdeaPad") `
-  -InstallCommand 'winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+$systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.ToLower()
+$systemModel = (Get-WmiObject -Class Win32_ComputerSystem).Model.ToUpper()
+
+#Lenovo (Vantage / Commercial Vantage)
+if ($systemManufacturer -like "*lenovo*") {
+    if ($systemModel -like "20*" -or $systemModel -like "21*") { #List erweitern, sollte Lenovo eine neue Modellogik nutzen
+        #Lenovo Commercial Vantage (Think-)
+        winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    } else {
+        #Lenovo Vantage (Idea-)
+        winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+}
+
+function Install-IfManufacturerMulti {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$RequiredManufacturers,
+        [Parameter(Mandatory=$true)]
+        [string]$InstallCommand
+    )
+    $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+    foreach ($req in $RequiredManufacturers) {
+        if ($systemManufacturer -like "*$req*") {
+            Invoke-Expression $InstallCommand
+            break
+        }
+    }
+}
 
 #Acer (Care Center S)
 Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
@@ -92,18 +112,12 @@ Install-IfManufacturerMulti -RequiredManufacturers @("Dell") -InstallCommand 'wi
 #Asus (MyAsus)
 Install-IfManufacturerMulti -RequiredManufacturers @("Asus") -InstallCommand 'winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
 
-#Microsoft Surface (Surface)
-Install-IfManufacturerAndModel `
-  -RequiredManufacturers @("Microsoft") `
-  -RequiredModels @("Surface") `
-  -InstallCommand 'winget install -e --id 9WZDNCRFJB8P --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
-
 #--------------------------------------------------------------------------
 
 #Löschen von allen Windows Apps, ausser Store
 Function MSAppslöschen {
     Write-Output "Windows Apps werden deinstalliert..."
-  Get-AppxPackage "Microsoft.3DBuilder" | Remove-AppxPackage
+  	Get-AppxPackage "Microsoft.3DBuilder" | Remove-AppxPackage
 	Get-AppxPackage "Microsoft.AppConnector" | Remove-AppxPackage
 	Get-AppxPackage "Microsoft.BingFinance" | Remove-AppxPackage
 	Get-AppxPackage "Microsoft.BingNews" | Remove-AppxPackage
@@ -168,6 +182,7 @@ Function MSAppslöschen {
     Get-AppxPackage *solitairecollection* | Remove-AppxPackage
     Get-AppxPackage  Microsoft.549981C3F5F10 | Remove-AppxPackage 
     Get-AppxPackage *xbox* | Remove-AppxPackage
+	Get-AppxPackage *WebExperience* | Remove-AppxPackage #Entfernt Widgets von der Taskleiste
 }
 MSAppslöschen
 

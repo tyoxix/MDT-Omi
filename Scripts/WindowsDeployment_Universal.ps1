@@ -11,7 +11,6 @@ Konfigurationen:
     Anzeigen des Benutzerordners auf Dektop
     Kleine Symbole in Systemsteuerung festlegen
     Defragmentierung Ausschalten
-    Appvorschläge Ausschalten
     ScmartScreen deaktivieren
     Windows Light-Mode deaktivieren
     Zuletzt hinzugefügte Apps ausschalten
@@ -22,6 +21,7 @@ Konfigurationen:
     Action Center deaktivieren (App Icons) / Benachrichtigungen anzeigen
     Explorer Datenschutzoptionen
     NumLock immer aktiviert
+	Windows 11 Rechtsklick deaktivieren
     Taskleiste bereinigen
     Sekundäre Festplatte als "Daten" formatieren
     OneDrive löschen
@@ -29,6 +29,10 @@ Konfigurationen:
     Löschen von Temporären Windows Dateien / chocolatey Dateien
     Windows Aktivieren
 
+	Fix with other Script
+		    Appvorschläge Ausschalten
+			Darkmode?
+			
 
 Rausputzen:
     Alle Verknüpfungen auf dem Desktop Löschen
@@ -108,33 +112,6 @@ Function SystemsteuerungKleineSymbole {
 }
 SystemsteuerungKleineSymbole
 
-#Defragmentierung Ausschalten
-Function DefragmentierungAusschalten {
-	Write-Output "Defragmentierung wird ausgeschalten..."
-	Disable-ScheduledTask -TaskName "Microsoft\Windows\Defrag\ScheduledDefrag" | Out-Null
-}
-DefragmentierungAusschalten
-
- #Appvorschläge Ausschalten
-Function Appvorschlägeausschalten {
-	Write-Output "Gelegentliche Appvorschläge werden ausgeschalten..."
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "ContentDeliveryAllowed" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "OemPreInstalledAppsEnabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "PreInstalledAppsEnabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "PreInstalledAppsEverEnabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SilentInstalledAppsEnabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338389Enabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-353698Enabled" -Type DWord -Value 0
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Type DWord -Value 0
-	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent")) {
-		New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name "DisableWindowsConsumerFeatures" -Type DWord -Value 1 | Out-Null
-}
-Appvorschlägeausschalten
-
 #ScmartScreen deaktivieren
 Function Smartscreendeaktivieren {
 	Write-Output "SmartScreen wird deaktiviert..."
@@ -146,16 +123,23 @@ Function Smartscreendeaktivieren {
 }
 Smartscreendeaktivieren
 
-#Windows Light-Mode deaktivieren
-Function lightmodedeaktivieren {
-	Set-ItemProperty -Path HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize -Name SystemUsesLightTheme -Value 0 -Type Dword -Force
+#Windows Darkmode aktivieren
+Function DarkModeAktivieren {
+    Write-Output "Windows Dark Mode wird aktiviert..."
+    If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")) {
+        New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" | Out-Null
+    }
+    # Dark Mode für Apps
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppsUseLightTheme" -Type DWord -Value 0
+    # Dark Mode für System/Oberfläche (Taskleiste, Startmenü)
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type DWord -Value 0
 }
-lightmodedeaktivieren
+DarkModeAktivieren
 
 #Explorer für "Dieser PC" Öffnen
 Function ExplorerfürDieserPC {
 	Write-Output "Setze Explorer öffnen für Dieser PC..."
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LaunchTo" -Type DWord -Value 1
+	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LaunchTo" -Type DWord -Value 1 -Force | Out-Null
 }
 ExplorerfürDieserPC
 
@@ -173,7 +157,7 @@ löschetastaturen
 #Löschen von "Fax" und "Microsoft XPS Document Writer" Druckern 
 Function LöscheDrucker {
 	Write-Output "Fax Drucker wird entfernt..."
-	Remove-Printer -Name "Fax" -ErrorAction SilentlyContinue
+	Remove-Printer -Name "Fax" -ErrorAction SilentlyContinue | Out-Null
     Write-Output "Microsoft XPS Document Writer Drucker wird entfernt..."
     Disable-WindowsOptionalFeature -Online -FeatureName "Printing-XPSServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
 }
@@ -198,47 +182,99 @@ Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifica
 Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_BADGE_ENABLED" -Type DWord -Value 0 -Force | Out-Null
 
 #Explorer Datenschutzoptionen
-Write-output "Explorer Datenschutzeinstellungen werden konfiguriert...."
+Write-output "Explorer Datenschutzeinstellungen werden konfiguriert..."
 If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer")) {
 	New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" | Out-Null
 }
 Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowRecent" -Type DWord -Value 0 -Force | Out-Null
 Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowFrequent" -Type DWord -Value 0 -Force | Out-Null
 
-#Enabling NumLock after startup
+#Dateiendungen anzeigen
+Write-output "Dateiendungen werden aktiviert..."
+Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0 -Type DWord -Force | Out-Null
+
+#Suchleiste als Lupe anzeigen
+Write-output "Suchleiste als Lupe anzeigen wird aktiviert..."
+Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Type DWord -Value 1 -Force | Out-Null
+
+#NumLock dauerhaft aktivieren
 Write-Host "Aktiviere NumLock dauerhaft..."
    If (!(Test-Path "HKU:")) {
       New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
    }
-   Set-ItemProperty -Path "HKU:\.DEFAULT\Control Panel\Keyboard" -Name "InitialKeyboardIndicators" -Type DWord -Value 2147483650
+   Set-ItemProperty -Path "HKU:\.DEFAULT\Control Panel\Keyboard" -Name "InitialKeyboardIndicators" -Type DWord -Value 2147483650 -Force | Out-Null
    Add-Type -AssemblyName System.Windows.Forms
    If (!([System.Windows.Forms.Control]::IsKeyLocked('NumLock'))) {
        $wsh = New-Object -ComObject WScript.Shell
        $wsh.SendKeys('{NUMLOCK}')
    }
 
-#Windows 11 Rechtsklick deaktivieren
-Write-Output "Windows 11 Rechtsklick wird deaktiviert..."
-Remove-Item "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Recurse -Force | Out-Null
+#Altes Kontextmenü / Recktsklick aktivieren
+Write-Output "Altes Windows Menü wird aktiviert..."
+New-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Force | Out-Null
+Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(default)" -Value "" -Force | Out-Null
 
-#Unpin Microsoft Edge from Taskbar
-Write-Output "Microsoft Edge wird von der Taskleiste entfernt..."
-Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband\Favorites" -Recurse -Force | Out-Null
-
-#Unpin Chat from Taskbar
+#Chat von Taskbar lösen
 Write-Output "Chat wird von der Taskleiste entfernt..."
 Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
 
-#Unpin Widgets from Taskbar
-Write-Output "Widgets wird von der Taskleiste entfernt..."
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Type DWord -Value 0 | Out-Null
+#Bing-Websuche deaktivieren
+Function WebsucheDeaktivieren { 
+	Write-Output "Bing-Websuche in der Windows-Suche wird deaktiviert..."
+    If (!(Test-Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer")) {
+        New-Item -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" | Out-Null
+    }
+    Set-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Type DWord -Value 1
+    If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search")) {
+        New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" | Out-Null
+    }
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Type DWord -Value 0
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Type DWord -Value 0
+}
+WebsucheDeaktivieren
+
+#Detailed BlueScreen aktivieren
+Function DetailedBsodAktivieren {
+    Write-Output "Detailed (klassischer) Bluescreen wird aktiviert..."
+    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl"
+    If (!(Test-Path $regPath)) {
+        New-Item -Path $regPath | Out-Null
+    }
+    Set-ItemProperty -Path $regPath -Name "DisplayParameters" -Type DWord -Value 1
+}
+DetailedBsodAktivieren
+
+#Starteinstellungen anpassen
+Function Startmenu {
+   Type DWord -Value 1
+	#Meistverwendete Apps anzeigen
+	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackFrequent" -Type DWord -Value 1
+	#Empfehlungen für Tipps, Verknüpfungen, neue Apps deaktivieren
+	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Type DWord -Value 0
+	#Kontobezogene Benachrichtigungen deaktivieren
+	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_AccountNotifications" -Type DWord -Value 0
+}
+Startmenu
+
+#Energieeinstellungen anpassen
+Function Energiesparplan {
+	Write-Output "Energieeinstellungen werden angepasst..."
+	# Bildschirm ausschalten nach 20 Minuten (Netz- und Akkubetrieb)
+	powercfg /change monitor-timeout-ac 20
+	powercfg /change monitor-timeout-dc 20
+	# Energiesparmodus (Sleep) NIE (Netz- und Akkubetrieb)
+	powercfg /change standby-timeout-ac 0
+	powercfg /change standby-timeout-dc 0
+	# Festplatte ausschalten NIE (Netz- und Akkubetrieb)
+	powercfg /change disk-timeout-ac 0
+	powercfg /change disk-timeout-dc 0
+}
+Energiesparplan
 
 #Find the smallest disk (without USB)
 $OSDiskNumber = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -Last 1 | Select-Object -ExpandProperty Number
-
 #Find the largest disk (without USB)
 $seconddisk = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -First 1 | Select-Object -ExpandProperty Number
-
 #Format second largest disk as "Daten" (if not the same as smallest disk)
 if($OSDiskNumber -ne $seconddisk){
 	Initialize-Disk -Number $seconddisk | Out-Null
@@ -253,8 +289,7 @@ if($OSDiskNumber -ne $seconddisk){
 #Löscht OneDrive
 Function OneDrivelöschen {
 Write-Output "OneDrive wird deinstalliert..."
-taskkill /f /im OneDrive.exe | Out-Null
-C:\Windows\SysWOW64\OneDriveSetup.exe /uninstall
+Start-Process -FilePath winget -ArgumentList "uninstall -e --purge --accept-source-agreements Microsoft.OneDrive" -NoNewWindow -Wait
 }
 OneDrivelöschen
 

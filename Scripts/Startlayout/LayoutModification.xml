@@ -1,0 +1,36 @@
+<LayoutModificationTemplate xmlns="http://schemas.microsoft.com/Start/2014/LayoutModification"
+  xmlns:defaultlayout="http://schemas.microsoft.com/Start/2014/FullDefaultLayout"
+  xmlns:taskbar="http://schemas.microsoft.com/Start/2014/TaskbarLayout">
+  <!-- Taskleiste -->
+  <CustomTaskbarLayoutCollection>
+    <defaultlayout:TaskbarLayout>
+      <taskbar:TaskbarPinList>
+        <!-- Firefox -->
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Mozilla Firefox.lnk" />
+        <!-- Explorer -->
+        <taskbar:DesktopApp DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Windows Explorer.lnk" />
+      </taskbar:TaskbarPinList>
+    </defaultlayout:TaskbarLayout>
+  </CustomTaskbarLayoutCollection>
+  <!-- Startmenü -->
+  <DefaultLayoutOverride>
+    <StartLayoutCollection>
+      <defaultlayout:StartLayout GroupCellWidth="6">
+        <defaultlayout:Group Name="Angeheftet">
+          <!-- Firefox -->
+          <defaultlayout:DesktopApplicationTile DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Mozilla Firefox.lnk" />
+          <!-- Edge -->
+          <defaultlayout:Tile AppUserModelID="Microsoft.MicrosoftEdge_8wekyb3d8bbwe!MicrosoftEdge" />
+          <!-- Explorer -->
+          <defaultlayout:DesktopApplicationTile DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Windows Explorer.lnk" />
+          <!-- Microsoft Store -->
+          <defaultlayout:Tile AppUserModelID="Microsoft.WindowsStore_8wekyb3d8bbwe!App" />
+          <!-- Einstellungen -->
+          <defaultlayout:Tile AppUserModelID="windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel" />
+          <!-- Systemsteuerung -->
+          <defaultlayout:DesktopApplicationTile DesktopApplicationLinkPath="%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\Systemsteuerung.lnk" />
+        </defaultlayout:Group>
+      </defaultlayout:StartLayout>
+    </StartLayoutCollection>
+  </DefaultLayoutOverride>
+</LayoutModificationTemplate>
