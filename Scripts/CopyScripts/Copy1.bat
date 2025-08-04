@@ -1,2 +1,1 @@
 COPY \\MDTOMI-WS1\DeploymentShare$\Scripts\WindowsDeployment_Universal.ps1 C:\Windows\WindowsDeployment.ps1
-COPY \\MDTOMI-WS1\DeploymentShare$\Scripts\WindowsDeployment2.ps1 C:\Windows\WindowsDeployment2.ps1

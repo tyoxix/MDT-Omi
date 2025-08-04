@@ -284,6 +284,41 @@ if($OSDiskNumber -ne $seconddisk){
 	Write-Output "Sekundäre Festplatte wurde als 'Daten' formatiert"
 }
 
+#Edge Debloat
+Function EdgeDebloat{
+    Write-Host "Edge wird deabloated..."
+    #EdgeUpdate
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Force | Out-Null
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "CreateDesktopShortcutDefault" -Type DWord -Value 0
+    #Edge Policies
+    $edgePolicies = @(
+        @{Name="PersonalizationReportingEnabled"; Value=0},
+        @{Name="ShowRecommendationsEnabled"; Value=0},
+        @{Name="HideFirstRunExperience"; Value=1},
+        @{Name="UserFeedbackAllowed"; Value=0},
+        @{Name="ConfigureDoNotTrack"; Value=1},
+        @{Name="AlternateErrorPagesEnabled"; Value=0},
+        @{Name="EdgeCollectionsEnabled"; Value=0},
+        @{Name="EdgeShoppingAssistantEnabled"; Value=0},
+        @{Name="MicrosoftEdgeInsiderPromotionEnabled"; Value=0},
+        @{Name="ShowMicrosoftRewards"; Value=0},
+        @{Name="WebWidgetAllowed"; Value=0},
+        @{Name="DiagnosticData"; Value=0},
+        @{Name="EdgeAssetDeliveryServiceEnabled"; Value=0},
+        @{Name="CryptoWalletEnabled"; Value=0},
+        @{Name="WalletDonationEnabled"; Value=0}
+    )
+    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Force | Out-Null
+    foreach ($entry in $edgePolicies) {
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name $entry.Name -Type DWord -Value $entry.Value
+    }
+} 
+EdgeDebloat 
+
+#Windows Media Player deaktivieren
+Write-Host "Windows Media Player wird deaktiviert..."
+Disable-WindowsOptionalFeature -Online -FeatureName WindowsMediaPlayer -NoRestart
+
 #---------------------------------------------------------------------------
 
 #Löscht OneDrive
@@ -307,13 +342,168 @@ Tempslöschen
 Start-Process -FilePath "cscript.exe" -ArgumentList "//nologo $env:windir\system32\slmgr.vbs -ato" -NoNewWindow -Wait
 
 #--------------------------------------------------------------------------
+Write-Output "Benötigte Software wird installiert..."
+
+#Alle Geräte Standardprogramme //Aus Redundanzgründen drin lassen, OOBE verhaltet sich bei Installationen manchmal komisch
+winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+
+#Bei Microsoftgeräten wird die entsprechende Software automatisch per Windowsupdates installiert
+$systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.ToLower()
+$systemModel = (Get-WmiObject -Class Win32_ComputerSystem).Model.ToUpper()
+
+#Lenovo (Vantage / Commercial Vantage)
+if ($systemManufacturer -like "*lenovo*") {
+    if ($systemModel -like "20*" -or $systemModel -like "21*") { #List erweitern, sollte Lenovo eine neue Modellogik nutzen
+        #Lenovo Commercial Vantage (Think-)
+        winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    } else {
+        #Lenovo Vantage (Idea-)
+        winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+}
+
+function Install-IfManufacturerMulti {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$RequiredManufacturers,
+        [Parameter(Mandatory=$true)]
+        [string]$InstallCommand
+    )
+    $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+    foreach ($req in $RequiredManufacturers) {
+        if ($systemManufacturer -like "*$req*") {
+            Invoke-Expression $InstallCommand
+            break
+        }
+    }
+}
+
+#Acer (Care Center S)
+Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+#HP (Support Assistant)
+Install-IfManufacturerMulti -RequiredManufacturers @("HP","Hewlett-Packard") -InstallCommand 'choco install hpsupportassistant -y'
+
+#Dell (Command Update)
+Install-IfManufacturerMulti -RequiredManufacturers @("Dell") -InstallCommand 'winget install -e --id Dell.CommandUpdate --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+#Asus (MyAsus)
+Install-IfManufacturerMulti -RequiredManufacturers @("Asus") -InstallCommand 'winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+
+#--------------------------------------------------------------------------
+
+#Löschen von Windows Apps //Brauchts nicht mehr, falls provisioned packages gut funktioniert
+Function MSAppslöschen {
+    Write-Output "Windows Apps werden deinstalliert..."
+  	Get-AppxPackage "Microsoft.3DBuilder" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.AppConnector" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.BingFinance" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.BingNews" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.BingSports" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.BingTranslator" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.BingWeather" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.CommsPhone" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.ConnectivityStore" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.GetHelp" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Getstarted" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Messaging" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Microsoft3DViewer" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MicrosoftOfficeHub" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MicrosoftPowerBIForWindows" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MicrosoftSolitaireCollection" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MicrosoftStickyNotes" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MinecraftUWP" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.MSPaint" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.NetworkSpeedTest" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Office.OneNote" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Office.Sway" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.OneConnect" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.People" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Print3D" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.RemoteDesktop" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.SkypeApp" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.Wallet" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.WindowsAlarms" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.WindowsCamera" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.WindowsFeedbackHub" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.WindowsPhone" | Remove-AppxPackage
+	Get-AppxPackage "Microsoft.WindowsSoundRecorder" | Remove-AppxPackage
+	Get-AppxPackage "2414FC7A.Viber" | Remove-AppxPackage
+	Get-AppxPackage "41038Axilesoft.ACGMediaPlayer" | Remove-AppxPackage
+	Get-AppxPackage "46928bounde.EclipseManager" | Remove-AppxPackage
+	Get-AppxPackage "4DF9E0F8.Netflix" | Remove-AppxPackage
+	Get-AppxPackage "64885BlueEdge.OneCalendar" | Remove-AppxPackage
+	Get-AppxPackage "7EE7776C.LinkedInforWindows" | Remove-AppxPackage
+	Get-AppxPackage "828B5831.HiddenCityMysteryofShadows" | Remove-AppxPackage
+	Get-AppxPackage "89006A2E.AutodeskSketchBook" | Remove-AppxPackage
+	Get-AppxPackage "9E2F88E3.Twitter" | Remove-AppxPackage
+	Get-AppxPackage "A278AB0D.DisneyMagicKingdoms" | Remove-AppxPackage
+	Get-AppxPackage "A278AB0D.MarchofEmpires" | Remove-AppxPackage
+	Get-AppxPackage "ActiproSoftwareLLC.562882FEEB491" | Remove-AppxPackage
+	Get-AppxPackage "AdobeSystemsIncorporated.AdobePhotoshopExpress" | Remove-AppxPackage
+	Get-AppxPackage "CAF9E577.Plex" | Remove-AppxPackage
+	Get-AppxPackage "D52A8D61.FarmVille2CountryEscape" | Remove-AppxPackage
+	Get-AppxPackage "D5EA27B7.Duolingo-LearnLanguagesforFree" | Remove-AppxPackage
+	Get-AppxPackage "DB6EA5DB.CyberLinkMediaSuiteEssentials" | Remove-AppxPackage
+	Get-AppxPackage "DolbyLaboratories.DolbyAccess" | Remove-AppxPackage
+	Get-AppxPackage "Drawboard.DrawboardPDF" | Remove-AppxPackage
+	Get-AppxPackage "Facebook.Facebook" | Remove-AppxPackage
+	Get-AppxPackage "flaregamesGmbH.RoyalRevolt2" | Remove-AppxPackage
+	Get-AppxPackage "GAMELOFTSA.Asphalt8Airborne" | Remove-AppxPackage
+	Get-AppxPackage "KeeperSecurityInc.Keeper" | Remove-AppxPackage
+	Get-AppxPackage "king.com.BubbleWitch3Saga" | Remove-AppxPackage
+	Get-AppxPackage "king.com.CandyCrushSodaSaga" | Remove-AppxPackage
+	Get-AppxPackage "PandoraMediaInc.29680B314EFC2" | Remove-AppxPackage
+	Get-AppxPackage "SpotifyAB.SpotifyMusic" | Remove-AppxPackage
+	Get-AppxPackage "WinZipComputing.WinZipUniversal" | Remove-AppxPackage
+	Get-AppxPackage "XINGAG.XING" | Remove-AppxPackage
+    Get-AppxPackage *solitairecollection* | Remove-AppxPackage
+    Get-AppxPackage  Microsoft.549981C3F5F10 | Remove-AppxPackage 
+    Get-AppxPackage *WebExperience* | Remove-AppxPackage #Entfernt Widgets von der Taskleiste
+	Get-AppxPackage -Name "Microsoft.OutlookForWindows" | Remove-AppxPackage
+	Get-AppxPackage -Name "MicrosoftTeams" | Remove-AppxPackage
+	Get-AppxPackage -Name "Microsoft.Teams" | Remove-AppxPackage
+    Get-AppxPackage -Name "MSTeams" | Remove-AppxPackage
+	Get-AppxPackage -Name "Microsoft.Todos" | Remove-AppxPackage
+    Get-AppxPackage -Name "Microsoft.LinkedIn" | Remove-AppxPackage
+    Get-AppxPackage -AllUsers | Where-Object {$_.Name -like "*xbox*"} | Remove-AppxPackage
+}
+MSAppslöschen
+
+#Alle Verknüpfungen auf dem Desktop löschen
+Function LöscheDesktop {
+    Write-Output "Alle Verknüpfungen auf dem Desktop werden gelöscht..."
+    Remove-Item "C:\Users\*\Desktop\*.lnk" }
+LöscheDesktop
+
+#Teamviewer auf Desktop
+Write-Output "Omikron Fernwartung wird auf Desktop verlinkt..."
+$Path = "C:\Program Files\TeamViewer\TeamViewer.exe"
+$linkPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk"
+$wshell = New-Object -ComObject WScript.Shell
+$shortcut = $wshell.CreateShortcut($linkPath)
+$shortcut.TargetPath = $Path
+$shortcut.WorkingDirectory = Split-Path $Path
+$shortcut.IconLocation = $Path
+$shortcut.Save()
+
+#UAC aktivieren
+Write-Output "UAC (Benutzerkontensteuerung) wird wieder aktiviert..."
+Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
+
+#Wiederherstellungpunkt erstellen
+Write-Output "Wiederherstellungspunkt wird erstellt..."
+Checkpoint-Computer -Description „Omikron Data AG Scriptfix“ -RestorePointType „MODIFY_SETTINGS“
 
 Write-Output ""
-#Read-Host "Drücke Enter um das Gerät neu zu starten"
+
+#--------------------------------------------------------------------------
 
 Remove-Item -Path $MyInvocation.MyCommand.Source -Force
 Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
-Move-Item "C:\Windows\RunPS2.bat" "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS2.bat"
-
 stop-transcript
 Restart-Computer
