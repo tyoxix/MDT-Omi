@@ -17,15 +17,15 @@ Function Adminneustart {
 Adminneustart
 
 $ConfirmPreference = "None"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 #Try/Catch Error Log für Desktop
 Function Write-ErrorLog {
     param([string]$Message)
-    $ErrorLogFile = "$env:USERPROFILE\Desktop\preload_errors.txt"
+    $ErrorLogFile = "$env:USERPROFILE\Desktop\preload_errors.log"
     # Prüfen, ob Datei existiert, falls nicht, Hinweis schreiben
     if (!(Test-Path $ErrorLogFile)) {
-        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`n Sollte der Fehler regelmässig auftreten, erstelle ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT, mit einer kurzen Beschreibung des Problems, der preload_errors.log und den log dateien unter C:\Windows\MDT`r`n"
+        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`nSollte der untenstehende Fehler regelmässig auftreten, erstelle ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT, mit einer kurzen Beschreibung des Problems, der preload_errors.log und den LOG-Dateien unter C:\Windows\MDT`r`n"
     }
     $timestamp = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
     Add-Content -Path $ErrorLogFile -Value "$timestamp $Message"
