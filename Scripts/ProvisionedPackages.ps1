@@ -1,4 +1,41 @@
-# App-Pakete für aktuellen Benutzer entfernen
+$ConfirmPreference = "None"
+$ErrorActionPreference = "Continue"
+
+#Transcript in OOBE nicht möglich, deshalb individuelles loggen.
+$logFolder = "C:\Windows\MDT"
+$log = "$logFolder\OOBEprovisionedpackages.log"
+if (-not (Test-Path $logFolder)) {
+    New-Item -Path $logFolder -ItemType Directory | Out-Null
+}
+
+$hostname = $env:COMPUTERNAME
+$os = (Get-CimInstance Win32_OperatingSystem).Caption
+$compInfo = Get-CimInstance -ClassName Win32_ComputerSystem
+$hersteller = $compInfo.Manufacturer
+$modell = $compInfo.Model
+
+"--- MDT OOBE Package Provisioning Log $(Get-Date) | $hostname --- | $os --- | $hersteller $modell ---" | Out-File -FilePath $log -Encoding utf8 -Append
+
+function Log-AppRemove {
+    param(
+        [string]$command,
+        [string]$infoText = ""
+    )
+    "`n>>> $command >>> $(Get-Date)" | Out-File -FilePath $log -Encoding utf8 -Append
+    if ($infoText) {
+        "$infoText" | Out-File -FilePath $log -Encoding utf8 -Append
+    }
+    try {
+        Invoke-Expression "$command 2>&1" | Out-File -FilePath $log -Encoding utf8 -Append
+    } catch {
+        "FEHLER bei Befehl: $command" | Out-File -FilePath $log -Encoding utf8 -Append
+        $_ | Out-String | Out-File -FilePath $log -Encoding utf8 -Append
+    }
+}
+
+# --------------------------------------------------------------------------
+
+# App-Pakete-Liste //Hier neue Apps hinzufügen
 $appxPackages = @(
     "Microsoft.3DBuilder",
     "Microsoft.AppConnector",
@@ -71,21 +108,21 @@ $appxPackages = @(
     "Microsoft.LinkedIn"
 )
 
-#Für bestehende Benutzer entfernen
+# Für bestehende Benutzer entfernen
 foreach ($pkg in $appxPackages) {
-    Get-AppxPackage -Name $pkg -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-}
-#Für neue Benutzer (provisioned packages) entfernen
-foreach ($pkg in $appxPackages) {
-    Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq $pkg | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+    Log-AppRemove "Get-AppxPackage -Name `"$pkg`" -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue" "Entferne App (Benutzer): $pkg"
 }
 
-#Für Apps mit Wildcards
-#Für bestehende Benutzer entfernen
-Get-AppxPackage -AllUsers *solitairecollection* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-Get-AppxPackage -AllUsers *WebExperience* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-Get-AppxPackage -AllUsers *xbox* | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-#Für neue Benutzer entfernen (provisioned)
-Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*solitairecollection*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*WebExperience*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*xbox*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+# Für neue Benutzer (provisioned packages) entfernen
+foreach ($pkg in $appxPackages) {
+    Log-AppRemove "Get-AppxProvisionedPackage -Online | Where-Object DisplayName -eq `"$pkg`" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue" "Entferne App (Provisioned): $pkg"
+}
+
+# Für Apps mit Wildcards (Benutzer & Provisioned)
+$wildcards = @("*solitairecollection*", "*WebExperience*", "*xbox*")
+foreach ($wild in $wildcards) {
+    Log-AppRemove "Get-AppxPackage -AllUsers $wild | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue" "Entferne Wildcard-App: $wild"
+    Log-AppRemove "Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like `"$wild`" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue" "Entferne Provisioned Wildcard-App: $wild"
+}
+
+"--- Skript beendet: $(Get-Date) | $hostname --- | $os --- | $hersteller $modell ---" | Out-File -FilePath $log -Encoding utf8 -Append

@@ -1,47 +1,8 @@
 <#
 Autor: Tobias Hösli / Omikron Data AG
-Letzte Änderungen: 31.07.2025
+Letzte Änderungen: 04.08.2025
 
-Neue, automatisiertere Version von WindowsDeployment.ps1.
-Dieses Script führt folgende Aufgaben aus:
-
-Konfigurationen:
-    Windows Festplatte in "System" umbenennen
-    Anzeigen von "Dieser PC" auf Desktop
-    Anzeigen des Benutzerordners auf Dektop
-    Kleine Symbole in Systemsteuerung festlegen
-    Defragmentierung Ausschalten
-    ScmartScreen deaktivieren
-    Windows Light-Mode deaktivieren
-    Zuletzt hinzugefügte Apps ausschalten
-    Explorer öffnen für "Dieser PC"
-    Tastaturlayout Französisch (Schweiz) & Deutsch (Deutschland) löschen
-    Löschen von "Fax" und "Microsoft XPS Document Writer" Druckern
-    Uhrzeit Synchronisieren
-    Action Center deaktivieren (App Icons) / Benachrichtigungen anzeigen
-    Explorer Datenschutzoptionen
-    NumLock immer aktiviert
-	Windows 11 Rechtsklick deaktivieren
-    Taskleiste bereinigen
-    Sekundäre Festplatte als "Daten" formatieren
-    OneDrive löschen
-    Alle Verknüpfungen auf dem Desktop löschen
-    Löschen von Temporären Windows Dateien / chocolatey Dateien
-    Windows Aktivieren
-
-	Fix with other Script
-		    Appvorschläge Ausschalten
-			Darkmode?
-			
-
-Rausputzen:
-    Alle Verknüpfungen auf dem Desktop Löschen
-    Temporäre Dateien
-    Deinstallation OneDrive
-
-Diverses:
-    Windows Aktivierung
-    Wiederherstellungspunkt
+https://github.com/tyoxix/MDT-Omi/wiki/MDT-Omikron-WIKI
 #>
 
 #--------------------------------------------------------------------------
@@ -55,316 +16,507 @@ Function Adminneustart {
 }
 Adminneustart
 
-#--------------------------------------------------------------------------
-
 $ConfirmPreference = "None"
 $ErrorActionPreference = "Continue"
 
-#--------------------------------------------------------------------------
-clear
+#Try/Catch Error Log für Desktop
+Function Write-ErrorLog {
+    param([string]$Message)
+    $ErrorLogFile = "$env:USERPROFILE\Desktop\preload_errors.txt"
+    # Prüfen, ob Datei existiert, falls nicht, Hinweis schreiben
+    if (!(Test-Path $ErrorLogFile)) {
+        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`n Sollte der Fehler regelmässig auftreten, erstelle ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT, mit einer kurzen Beschreibung des Problems, der preload_errors.log und den log dateien unter C:\Windows\MDT`r`n"
+    }
+    $timestamp = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
+    Add-Content -Path $ErrorLogFile -Value "$timestamp $Message"
+}
 
-start-transcript C:\Windows\WindowsDeployment.log
-Stop-Process -ProcessName explorer -Force
+#Errorlog für logdateien
+$logPath = "C:\Windows\MDT\WindowsDeployment.log"
+$logFolder = Split-Path $logPath
+try {
+    if (-not (Test-Path $logFolder)) {
+        New-Item -Path $logFolder -ItemType Directory | Out-Null
+    }
+}
+catch { Write-ErrorLog $_.Exception.Message }
+
+clear
+Start-Transcript -Path $logPath
+
+#--------------------------------------------------------------------------
 
 #Windows Festplatte zu "System" umbenennen
 Function Festplatteumbenennen {
-    Write-Output "Windows Festplatte wird umbenannt..."
-    Set-Volume -DriveLetter C -NewFileSystemLabel "System"
+    try {
+        Write-Output "Windows Festplatte wird umbenannt..."
+        Set-Volume -DriveLetter C -NewFileSystemLabel "System"
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 Festplatteumbenennen
 
 #Anzeigen von "Dieser PC" auf Desktop
 Function DieserPCaufDesktop {
-	Write-Output "Dieser PC wird auf den Desktop hinzugefügt..."
-	If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu")) {
-		New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Type DWord -Value 0
-	If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel")) {
-		New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Type DWord -Value 0
+    try {
+        Write-Output "Dieser PC wird auf den Desktop hinzugefügt..."
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Type DWord -Value 0
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Type DWord -Value 0
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 DieserPCaufDesktop
 
 #Anzeigen des Benutzerordners auf Dektop
 Function BenutzerordneraufDesktop {
-    Write-Output "Benutzerordner wird auf den Desktop hinzugefügt..."
-	If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu")) {
-		New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Name "{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Type DWord -Value 0
-	If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel")) {
-		New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Type DWord -Value 0
+    try {
+        Write-Output "Benutzerordner wird auf den Desktop hinzugefügt..."
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\ClassicStartMenu" -Name "{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Type DWord -Value 0
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Type DWord -Value 0
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 BenutzerordneraufDesktop
 
 #Kleine Symbole in Systemsteuerung festlegen
 Function SystemsteuerungKleineSymbole {
-	Write-Output "Kleine Symbole werden in Systemsteuerung festgelegt..."
-	If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel")) {
-		New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" | Out-Null
-	}
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "StartupPage" -Type DWord -Value 1
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "AllItemsIconView" -Type DWord -Value 1
+    try {
+        Write-Output "Kleine Symbole werden in Systemsteuerung festgelegt..."
+        If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel")) {
+            New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "StartupPage" -Type DWord -Value 1
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "AllItemsIconView" -Type DWord -Value 1
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 SystemsteuerungKleineSymbole
 
-#ScmartScreen deaktivieren
+#SmartScreen deaktivieren
 Function Smartscreendeaktivieren {
-	Write-Output "SmartScreen wird deaktiviert..."
-	Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableSmartScreen" -Type DWord -Value 0
-	If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter")) {
-		New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter" -Force | Out-Null
-	}
-	Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter" -Name "EnabledV9" -Type DWord -Value 0
+    try {
+        Write-Output "SmartScreen wird deaktiviert..."
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableSmartScreen" -Type DWord -Value 0
+        If (!(Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter")) {
+            New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter" -Force | Out-Null
+        }
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter" -Name "EnabledV9" -Type DWord -Value 0
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 Smartscreendeaktivieren
 
 #Windows Darkmode aktivieren
 Function DarkModeAktivieren {
-    Write-Output "Windows Dark Mode wird aktiviert..."
-    If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")) {
-        New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" | Out-Null
+    try {
+        Write-Output "Windows Dark Mode wird aktiviert..."
+        If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")) {
+            New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppsUseLightTheme" -Type DWord -Value 0
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type DWord -Value 0
     }
-    # Dark Mode für Apps
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppsUseLightTheme" -Type DWord -Value 0
-    # Dark Mode für System/Oberfläche (Taskleiste, Startmenü)
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type DWord -Value 0
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 DarkModeAktivieren
 
 #Explorer für "Dieser PC" Öffnen
 Function ExplorerfürDieserPC {
-	Write-Output "Setze Explorer öffnen für Dieser PC..."
-	Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LaunchTo" -Type DWord -Value 1 -Force | Out-Null
+    try {
+        Write-Output "Setze Explorer öffnen für Dieser PC..."
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LaunchTo" -Type DWord -Value 1 -Force | Out-Null
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 ExplorerfürDieserPC
 
 #Französisch (Schweiz) & Deutsch (Deutschland) löschen
 Function löschetastaturen {
-    Write-Output "Französisch (Schweiz) Tastaturlayout wird entfernt..."
-    $langs = Get-WinUserLanguageList
-    Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "fr-CH"}) -Force
-    Write-Output "Deutsch (Deutschland) Tastaturlayout wird entfernt..."
-    $langs = Get-WinUserLanguageList
-    Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "de-DE"}) -Force
+    try {
+        Write-Output "Französisch (Schweiz) Tastaturlayout wird entfernt..."
+        $langs = Get-WinUserLanguageList
+        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "fr-CH"}) -Force
+        Write-Output "Deutsch (Deutschland) Tastaturlayout wird entfernt..."
+        $langs = Get-WinUserLanguageList
+        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "de-DE"}) -Force
     }
+    catch { Write-ErrorLog $_.Exception.Message }
+}
 löschetastaturen
 
 #Löschen von "Fax" und "Microsoft XPS Document Writer" Druckern 
 Function LöscheDrucker {
-	Write-Output "Fax Drucker wird entfernt..."
-	Remove-Printer -Name "Fax" -ErrorAction SilentlyContinue | Out-Null
-    Write-Output "Microsoft XPS Document Writer Drucker wird entfernt..."
-    Disable-WindowsOptionalFeature -Online -FeatureName "Printing-XPSServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
+    try {
+        Write-Output "Fax Drucker wird entfernt..."
+        Remove-Printer -Name "Fax" -ErrorAction SilentlyContinue | Out-Null
+        Write-Output "Microsoft XPS Document Writer Drucker wird entfernt..."
+        Disable-WindowsOptionalFeature -Online -FeatureName "Printing-XPSServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 LöscheDrucker
 
 #Synchronisierung der Uhrzeit
 Function Uhrzeit {
-    Write-Output "Uhrzeit wird synchronisiert..."
-    net stop w32time >$null 2>&1
-    net start w32time >$null 2>&1
-    W32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL >$null 2>&1
-    W32tm /config /update >$null 2>&1
+    try {
+        Write-Output "Uhrzeit wird synchronisiert..."
+        net stop w32time >$null 2>&1
+        net start w32time >$null 2>&1
+        W32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL >$null 2>&1
+        W32tm /config /update >$null 2>&1
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 Uhrzeit
 
 #Action Center deaktivieren (App Icons) / Benachrichtigungen anzeigen
-Write-Output "Action Center wird konfiguriert... "
-If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings")) {
-	New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" | Out-Null
+Function ActionCenterKonfigurieren {
+    try {
+        Write-Output "Action Center wird konfiguriert... "
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_GLEAM_ENABLED" -Type DWord -Value 0 -Force | Out-Null
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_BADGE_ENABLED" -Type DWord -Value 0 -Force | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_GLEAM_ENABLED" -Type DWord -Value 0 -Force | Out-Null
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_BADGE_ENABLED" -Type DWord -Value 0 -Force | Out-Null
+ActionCenterKonfigurieren
 
 #Explorer Datenschutzoptionen
-Write-output "Explorer Datenschutzeinstellungen werden konfiguriert..."
-If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer")) {
-	New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" | Out-Null
+Function ExplorerDatenschutzKonfigurieren {
+    try {
+        Write-Output "Explorer Datenschutzeinstellungen werden konfiguriert..."
+        If (!(Test-Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer")) {
+            New-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowRecent" -Type DWord -Value 0 -Force | Out-Null
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowFrequent" -Type DWord -Value 0 -Force | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowRecent" -Type DWord -Value 0 -Force | Out-Null
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowFrequent" -Type DWord -Value 0 -Force | Out-Null
+ExplorerDatenschutzKonfigurieren
 
 #Dateiendungen anzeigen
-Write-output "Dateiendungen werden aktiviert..."
-Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0 -Type DWord -Force | Out-Null
+Function DateiendungenAktivieren {
+    try {
+        Write-Output "Dateiendungen werden aktiviert..."
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0 -Type DWord -Force | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+DateiendungenAktivieren
 
 #Suchleiste als Lupe anzeigen
-Write-output "Suchleiste als Lupe anzeigen wird aktiviert..."
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Type DWord -Value 1 -Force | Out-Null
+Function SuchleisteAlsLupeAnzeigen {
+    try {
+        Write-Output "Suchleiste als Lupe anzeigen wird aktiviert..."
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Type DWord -Value 1 -Force | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+SuchleisteAlsLupeAnzeigen
 
 #NumLock dauerhaft aktivieren
-Write-Host "Aktiviere NumLock dauerhaft..."
-   If (!(Test-Path "HKU:")) {
-      New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
-   }
-   Set-ItemProperty -Path "HKU:\.DEFAULT\Control Panel\Keyboard" -Name "InitialKeyboardIndicators" -Type DWord -Value 2147483650 -Force | Out-Null
-   Add-Type -AssemblyName System.Windows.Forms
-   If (!([System.Windows.Forms.Control]::IsKeyLocked('NumLock'))) {
-       $wsh = New-Object -ComObject WScript.Shell
-       $wsh.SendKeys('{NUMLOCK}')
-   }
+Function NumLockDauerhaftAktivieren {
+    try {
+        Write-Host "Aktiviere NumLock dauerhaft..."
+        If (!(Test-Path "HKU:")) {
+            New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
+        }
+        Set-ItemProperty -Path "HKU:\.DEFAULT\Control Panel\Keyboard" -Name "InitialKeyboardIndicators" -Type DWord -Value 2147483650 -Force | Out-Null
+        Add-Type -AssemblyName System.Windows.Forms
+        If (!([System.Windows.Forms.Control]::IsKeyLocked('NumLock'))) {
+            $wsh = New-Object -ComObject WScript.Shell
+            $wsh.SendKeys('{NUMLOCK}')
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+NumLockDauerhaftAktivieren
 
 #Altes Kontextmenü / Recktsklick aktivieren
-Write-Output "Altes Windows Menü wird aktiviert..."
-New-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Force | Out-Null
-Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(default)" -Value "" -Force | Out-Null
+Function AltesKontextmenueAktivieren {
+    try {
+        Write-Output "Altes Windows Menü wird aktiviert..."
+        New-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Force | Out-Null
+        Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(default)" -Value "" -Force | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+AltesKontextmenueAktivieren
 
 #Chat von Taskbar lösen
-Write-Output "Chat wird von der Taskleiste entfernt..."
-Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
+Function ChatVonTaskleisteEntfernen {
+    try {
+        Write-Output "Chat wird von der Taskleiste entfernt..."
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+ChatVonTaskleisteEntfernen
 
 #Bing-Websuche deaktivieren
 Function WebsucheDeaktivieren { 
-	Write-Output "Bing-Websuche in der Windows-Suche wird deaktiviert..."
-    If (!(Test-Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer")) {
-        New-Item -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" | Out-Null
+    try {
+        Write-Output "Bing-Websuche in der Windows-Suche wird deaktiviert..."
+        If (!(Test-Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer")) {
+            New-Item -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Type DWord -Value 1
+        If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search")) {
+            New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" | Out-Null
+        }
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Type DWord -Value 0
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Type DWord -Value 0
     }
-    Set-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Type DWord -Value 1
-    If (!(Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search")) {
-        New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" | Out-Null
+    catch {
+        Write-ErrorLog $_.Exception.Message
     }
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Type DWord -Value 0
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Type DWord -Value 0
 }
 WebsucheDeaktivieren
 
-#Detailed BlueScreen aktivieren
+#Detailed BSOD aktivieren
 Function DetailedBsodAktivieren {
-    Write-Output "Detailed (klassischer) Bluescreen wird aktiviert..."
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl"
-    If (!(Test-Path $regPath)) {
-        New-Item -Path $regPath | Out-Null
+    try {
+        Write-Output "Detailed (klassischer) Bluescreen wird aktiviert..."
+        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl"
+        If (!(Test-Path $regPath)) {
+            New-Item -Path $regPath | Out-Null
+        }
+        Set-ItemProperty -Path $regPath -Name "DisplayParameters" -Type DWord -Value 1
     }
-    Set-ItemProperty -Path $regPath -Name "DisplayParameters" -Type DWord -Value 1
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 DetailedBsodAktivieren
 
 #Starteinstellungen anpassen
 Function Startmenu {
-   Type DWord -Value 1
-	#Meistverwendete Apps anzeigen
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackFrequent" -Type DWord -Value 1
-	#Empfehlungen für Tipps, Verknüpfungen, neue Apps deaktivieren
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Type DWord -Value 0
-	#Kontobezogene Benachrichtigungen deaktivieren
-	Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_AccountNotifications" -Type DWord -Value 0
+    try {
+        #Meistverwendete Apps anzeigen
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackFrequent" -Type DWord -Value 1
+        #Empfehlungen für Tipps, Verknüpfungen, neue Apps deaktivieren
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Type DWord -Value 0
+        #Kontobezogene Benachrichtigungen deaktivieren
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_AccountNotifications" -Type DWord -Value 0
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 Startmenu
 
-#Energieeinstellungen anpassen
+#Energiesparplan anpassen
 Function Energiesparplan {
-	Write-Output "Energieeinstellungen werden angepasst..."
-	# Bildschirm ausschalten nach 20 Minuten (Netz- und Akkubetrieb)
-	powercfg /change monitor-timeout-ac 20
-	powercfg /change monitor-timeout-dc 20
-	# Energiesparmodus (Sleep) NIE (Netz- und Akkubetrieb)
-	powercfg /change standby-timeout-ac 0
-	powercfg /change standby-timeout-dc 0
-	# Festplatte ausschalten NIE (Netz- und Akkubetrieb)
-	powercfg /change disk-timeout-ac 0
-	powercfg /change disk-timeout-dc 0
+    try {
+        Write-Output "Energieeinstellungen werden angepasst..."
+        # Bildschirm ausschalten nach 20 Minuten (Netz- und Akkubetrieb)
+        powercfg /change monitor-timeout-ac 20
+        powercfg /change monitor-timeout-dc 20
+        # Energiesparmodus (Sleep) NIE (Netz- und Akkubetrieb)
+        powercfg /change standby-timeout-ac 0
+        powercfg /change standby-timeout-dc 0
+        # Festplatte ausschalten NIE (Netz- und Akkubetrieb)
+        powercfg /change disk-timeout-ac 0
+        powercfg /change disk-timeout-dc 0
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 Energiesparplan
 
-#Find the smallest disk (without USB)
-$OSDiskNumber = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -Last 1 | Select-Object -ExpandProperty Number
-#Find the largest disk (without USB)
-$seconddisk = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -First 1 | Select-Object -ExpandProperty Number
-#Format second largest disk as "Daten" (if not the same as smallest disk)
-if($OSDiskNumber -ne $seconddisk){
-	Initialize-Disk -Number $seconddisk | Out-Null
-	new-partition -disknumber $seconddisk -usemaximumsize | format-volume -filesystem NTFS -newfilesystemlabel Daten | Out-Null
-	Get-WmiObject -Class Win32_volume -Filter 'DriveType=5' | Select-Object -First 1 | Set-WmiInstance -Arguments @{DriveLetter='E:'} | Out-Null
-	Get-CimInstance -classname Win32_volume | ?{$_.Label -eq 'Daten'} | Set-CimInstance -Arguments @{Driveletter="D:"} | Out-Null
-	Write-Output "Sekundäre Festplatte wurde als 'Daten' formatiert"
+#Richtige Festplatte als "Daten" formatieren 
+Function FindDatadrive {
+    	try {
+		$OSDiskNumber = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -Last 1 | Select-Object -ExpandProperty Number
+		$seconddisk = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -First 1 | Select-Object -ExpandProperty Number
+		if($OSDiskNumber -ne $seconddisk){
+			Initialize-Disk -Number $seconddisk | Out-Null
+			new-partition -disknumber $seconddisk -usemaximumsize | format-volume -filesystem NTFS -newfilesystemlabel Daten | Out-Null
+			Get-WmiObject -Class Win32_volume -Filter 'DriveType=5' | Select-Object -First 1 | Set-WmiInstance -Arguments @{DriveLetter='E:'} | Out-Null
+			Get-CimInstance -classname Win32_volume | ?{$_.Label -eq 'Daten'} | Set-CimInstance -Arguments @{Driveletter="D:"} | Out-Null
+			Write-Output "Sekundäre Festplatte wurde als 'Daten' formatiert"
+		}
+	}
+	catch { 
+		Write-ErrorLog $_.Exception.Message 
+		}
 }
+FindDatadrive
 
 #Edge Debloat
 Function EdgeDebloat{
-    Write-Host "Edge wird deabloated..."
-    #EdgeUpdate
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Force | Out-Null
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "CreateDesktopShortcutDefault" -Type DWord -Value 0
-    #Edge Policies
-    $edgePolicies = @(
-        @{Name="PersonalizationReportingEnabled"; Value=0},
-        @{Name="ShowRecommendationsEnabled"; Value=0},
-        @{Name="HideFirstRunExperience"; Value=1},
-        @{Name="UserFeedbackAllowed"; Value=0},
-        @{Name="ConfigureDoNotTrack"; Value=1},
-        @{Name="AlternateErrorPagesEnabled"; Value=0},
-        @{Name="EdgeCollectionsEnabled"; Value=0},
-        @{Name="EdgeShoppingAssistantEnabled"; Value=0},
-        @{Name="MicrosoftEdgeInsiderPromotionEnabled"; Value=0},
-        @{Name="ShowMicrosoftRewards"; Value=0},
-        @{Name="WebWidgetAllowed"; Value=0},
-        @{Name="DiagnosticData"; Value=0},
-        @{Name="EdgeAssetDeliveryServiceEnabled"; Value=0},
-        @{Name="CryptoWalletEnabled"; Value=0},
-        @{Name="WalletDonationEnabled"; Value=0}
-    )
-    New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Force | Out-Null
-    foreach ($entry in $edgePolicies) {
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name $entry.Name -Type DWord -Value $entry.Value
+    try {
+        Write-Host "Edge wird deabloated..."
+        New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Force | Out-Null
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate" -Name "CreateDesktopShortcutDefault" -Type DWord -Value 0
+        $edgePolicies = @(
+            @{Name="PersonalizationReportingEnabled"; Value=0},
+            @{Name="ShowRecommendationsEnabled"; Value=0},
+            @{Name="HideFirstRunExperience"; Value=1},
+            @{Name="UserFeedbackAllowed"; Value=0},
+            @{Name="ConfigureDoNotTrack"; Value=1},
+            @{Name="AlternateErrorPagesEnabled"; Value=0},
+            @{Name="EdgeCollectionsEnabled"; Value=0},
+            @{Name="EdgeShoppingAssistantEnabled"; Value=0},
+            @{Name="MicrosoftEdgeInsiderPromotionEnabled"; Value=0},
+            @{Name="ShowMicrosoftRewards"; Value=0},
+            @{Name="WebWidgetAllowed"; Value=0},
+            @{Name="DiagnosticData"; Value=0},
+            @{Name="EdgeAssetDeliveryServiceEnabled"; Value=0},
+            @{Name="CryptoWalletEnabled"; Value=0},
+            @{Name="WalletDonationEnabled"; Value=0}
+        )
+        New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Force | Out-Null
+        foreach ($entry in $edgePolicies) {
+            Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name $entry.Name -Type DWord -Value $entry.Value
+        }
     }
+    catch { Write-ErrorLog $_.Exception.Message }
 } 
 EdgeDebloat 
 
-#Windows Media Player deaktivieren
-Write-Host "Windows Media Player wird deaktiviert..."
-Disable-WindowsOptionalFeature -Online -FeatureName WindowsMediaPlayer -NoRestart
+#Media Player deaktivieren
+Function MediaPlayerDeaktivieren {
+    try {
+        Write-Host "Windows Media Player wird deaktiviert..."
+        Disable-WindowsOptionalFeature -Online -FeatureName WindowsMediaPlayer -NoRestart | Out-Null
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+MediaPlayerDeaktivieren
 
 #---------------------------------------------------------------------------
 
 #Löscht OneDrive
 Function OneDrivelöschen {
-Write-Output "OneDrive wird deinstalliert..."
-Start-Process -FilePath winget -ArgumentList "uninstall -e --purge --accept-source-agreements Microsoft.OneDrive" -NoNewWindow -Wait
+    try {
+        Write-Output "OneDrive wird deinstalliert..."
+        Start-Process -FilePath winget -ArgumentList "uninstall -e --purge --accept-source-agreements Microsoft.OneDrive" -NoNewWindow -Wait
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 OneDrivelöschen
 
 #Löschen von Temporären Windows Dateien / chocolatey Dateien
 Function Tempslöschen {
-    Write-Output "Temporäre Dateien werden gelöscht..."
-    $folders = @("C:\Windows\Temp\*", "C:\Users\*\Appdata\Local\Temp\*", "C:\Windows\SoftwareDistribution\Download", "C:\Windows\System32\FNTCACHE.DAT", "C:\Users\*\Documents\WindowsPowerShell", "C:\ProgramData\chocolatey")
-    foreach ($folder in $folders) {Remove-Item $folder -force -recurse -ErrorAction SilentlyContinue}
+    try {
+        Write-Output "Temporäre Dateien werden gelöscht..."
+        $folders = @("C:\Windows\Temp\*", "C:\Users\*\Appdata\Local\Temp\*", "C:\Windows\SoftwareDistribution\Download", "C:\Windows\System32\FNTCACHE.DAT", "C:\Users\*\Documents\WindowsPowerShell", "C:\ProgramData\chocolatey")
+        foreach ($folder in $folders) {Remove-Item $folder -force -recurse -ErrorAction SilentlyContinue}
+    }
+    catch { Write-ErrorLog $_.Exception.Message }
 }
 Tempslöschen
 
 #--------------------------------------------------------------------------
 
 #Windows Aktivierung
-Start-Process -FilePath "cscript.exe" -ArgumentList "//nologo $env:windir\system32\slmgr.vbs -ato" -NoNewWindow -Wait
+try {
+    Start-Process -FilePath "cscript.exe" -ArgumentList "//nologo $env:windir\system32\slmgr.vbs -ato" -NoNewWindow -Wait
+}
+catch { Write-ErrorLog $_.Exception.Message }
 
 #--------------------------------------------------------------------------
 Write-Output "Benötigte Software wird installiert..."
-
 #Alle Geräte Standardprogramme //Aus Redundanzgründen drin lassen, OOBE verhaltet sich bei Installationen manchmal komisch
-winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-
-#Bei Microsoftgeräten wird die entsprechende Software automatisch per Windowsupdates installiert
-$systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.ToLower()
-$systemModel = (Get-WmiObject -Class Win32_ComputerSystem).Model.ToUpper()
-
-#Lenovo (Vantage / Commercial Vantage)
-if ($systemManufacturer -like "*lenovo*") {
-    if ($systemModel -like "20*" -or $systemModel -like "21*") { #List erweitern, sollte Lenovo eine neue Modellogik nutzen
-        #Lenovo Commercial Vantage (Think-)
-        winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-    } else {
-        #Lenovo Vantage (Idea-)
-        winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+Function Installiere7Zip {
+    try {
+        winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
     }
 }
+Installiere7Zip
+Function InstalliereTeamViewerHost {
+    try {
+        winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereTeamViewerHost
+Function InstalliereAdobeAcrobatReader {
+    try {
+        winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereAdobeAcrobatReader
+Function InstalliereVLC {
+    try {
+        winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereVLC
+Function InstalliereFirefoxDE {
+    try {
+        winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereFirefoxDE
+
+#Lenovo (Vantage / Commercial Vantage)
+Function InstalliereLenovoVantage {
+    try {
+        $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.ToLower()
+        $systemModel = (Get-WmiObject -Class Win32_ComputerSystem).Model.ToUpper()
+        if ($systemManufacturer -like "*lenovo*") {
+            if ($systemModel -like "20*" -or $systemModel -like "21*") {
+                # Lenovo Commercial Vantage (Think-)
+                winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+            } else {
+                # Lenovo Vantage (Idea-)
+                winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+            }
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereLenovoVantage
 
 function Install-IfManufacturerMulti {
     param(
@@ -383,16 +535,60 @@ function Install-IfManufacturerMulti {
 }
 
 #Acer (Care Center S)
-Install-IfManufacturerMulti -RequiredManufacturers @("Acer") -InstallCommand 'winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+Function InstalliereAcerCareCenter {
+    try {
+        $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+        if ($systemManufacturer -like "*Acer*") {
+            winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereAcerCareCenter
 
 #HP (Support Assistant)
-Install-IfManufacturerMulti -RequiredManufacturers @("HP","Hewlett-Packard") -InstallCommand 'choco install hpsupportassistant -y'
+Function InstalliereHPSupportAssistant {
+    try {
+        $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+        if ($systemManufacturer -like "*HP*" -or $systemManufacturer -like "*Hewlett-Packard*") {
+            choco install hpsupportassistant -y
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereHPSupportAssistant
 
 #Dell (Command Update)
-Install-IfManufacturerMulti -RequiredManufacturers @("Dell") -InstallCommand 'winget install -e --id Dell.CommandUpdate --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+Function InstalliereDellCommandUpdate {
+    try {
+        $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+        if ($systemManufacturer -like "*Dell*") {
+            winget install -e --id Dell.CommandUpdate --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereDellCommandUpdate
 
 #Asus (MyAsus)
-Install-IfManufacturerMulti -RequiredManufacturers @("Asus") -InstallCommand 'winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements'
+Function InstalliereAsusMyAsus {
+    try {
+        $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+        if ($systemManufacturer -like "*Asus*") {
+            winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+InstalliereAsusMyAsus
 
 #--------------------------------------------------------------------------
 
@@ -472,38 +668,103 @@ Function MSAppslöschen {
     Get-AppxPackage -Name "Microsoft.LinkedIn" | Remove-AppxPackage
     Get-AppxPackage -AllUsers | Where-Object {$_.Name -like "*xbox*"} | Remove-AppxPackage
 }
-MSAppslöschen
+#MSAppslöschen
 
 #Alle Verknüpfungen auf dem Desktop löschen
 Function LöscheDesktop {
-    Write-Output "Alle Verknüpfungen auf dem Desktop werden gelöscht..."
-    Remove-Item "C:\Users\*\Desktop\*.lnk" }
+    try {
+        Write-Output "Alle Verknüpfungen auf dem Desktop werden gelöscht..."
+        Remove-Item "C:\Users\*\Desktop\*.lnk"
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
 LöscheDesktop
 
 #Teamviewer auf Desktop
-Write-Output "Omikron Fernwartung wird auf Desktop verlinkt..."
-$Path = "C:\Program Files\TeamViewer\TeamViewer.exe"
-$linkPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk"
-$wshell = New-Object -ComObject WScript.Shell
-$shortcut = $wshell.CreateShortcut($linkPath)
-$shortcut.TargetPath = $Path
-$shortcut.WorkingDirectory = Split-Path $Path
-$shortcut.IconLocation = $Path
-$shortcut.Save()
+Function OmikronFernwartungVerknuepfen {
+    try {
+        Write-Output "Omikron Fernwartung wird auf Desktop verlinkt..."
+        $Path = "C:\Program Files\TeamViewer\TeamViewer.exe"
+        $linkPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk"
+        $wshell = New-Object -ComObject WScript.Shell
+        $shortcut = $wshell.CreateShortcut($linkPath)
+        $shortcut.TargetPath = $Path
+        $shortcut.WorkingDirectory = Split-Path $Path
+        $shortcut.IconLocation = $Path
+        $shortcut.Save()
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+OmikronFernwartungVerknuepfen
+
+#Taskleiste bereinigen
+Function TaskleisteLeeren {
+    try {
+        Write-Output "Taskleiste wird bereinigt..."
+        # Explorer beenden
+        Stop-Process -Name explorer -Force
+        # Taskleisten-Verknüpfungen löschen
+        Remove-Item "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\*" -Force -ErrorAction SilentlyContinue
+        # Registry-Taskband-Branch löschen und neu anlegen
+        Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband" -Recurse -ErrorAction SilentlyContinue
+        New-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband" | Out-Null
+        Start-Process explorer.exe
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+#TaskleisteLeeren
 
 #UAC aktivieren
-Write-Output "UAC (Benutzerkontensteuerung) wird wieder aktiviert..."
-Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
+Function UACAktivieren {
+    try {
+        Write-Output "UAC (Benutzerkontensteuerung) wird wieder aktiviert..."
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+UACAktivieren
 
-#Wiederherstellungpunkt erstellen
-Write-Output "Wiederherstellungspunkt wird erstellt..."
-Checkpoint-Computer -Description „Omikron Data AG Scriptfix“ -RestorePointType „MODIFY_SETTINGS“
+Function WiederherstellungspunktErstellen {
+    try {
+        Write-Output "Wiederherstellungspunkt wird erstellt..."
+        Checkpoint-Computer -Description "Omikron Data AG Scriptfix" -RestorePointType "MODIFY_SETTINGS"
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+WiederherstellungspunktErstellen
 
-Write-Output ""
+Function Test-ForcedError {
+    try {
+        # Das funktioniert garantiert nicht
+        Remove-Item "C:\DateiDieNichtExistiert.txt"
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
+}
+Test-ForcedError
 
 #--------------------------------------------------------------------------
 
-Remove-Item -Path $MyInvocation.MyCommand.Source -Force
-Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
-stop-transcript
-Restart-Computer
+try {
+    Remove-Item -Path $MyInvocation.MyCommand.Source -Force
+} catch { Write-ErrorLog $_.Exception.Message }
+try {
+    Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
+} catch { Write-ErrorLog $_.Exception.Message }
+try {
+    stop-transcript
+} catch { Write-ErrorLog $_.Exception.Message }
+try {
+    Restart-Computer
+} catch { Write-ErrorLog $_.Exception.Message }
