@@ -718,7 +718,7 @@ Function TaskleisteLeeren {
         Write-ErrorLog $_.Exception.Message
     }
 }
-#TaskleisteLeeren
+TaskleisteLeeren
 
 #UAC aktivieren
 Function UACAktivieren {
