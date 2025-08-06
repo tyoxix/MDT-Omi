@@ -25,7 +25,7 @@ Function Write-ErrorLog {
     $ErrorLogFile = "$env:USERPROFILE\Desktop\preload_errors.log"
     # Prüfen, ob Datei existiert, falls nicht, Hinweis schreiben
     if (!(Test-Path $ErrorLogFile)) {
-        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`nSollte der untenstehende Fehler regelmässig auftreten, erstelle ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT, mit einer kurzen Beschreibung des Problems, der preload_errors.log und den LOG-Dateien unter C:\Windows\MDT`r`n"
+        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`nSollte der untenstehende Fehler wiederholt auftreten, erstelle bitte ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT. Füge eine kurze Beschreibung des Problems, die Datei preload_errors.log sowie die LOG-Dateien aus C:\Windows\MDT bei.`r`n"
     }
     $timestamp = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
     Add-Content -Path $ErrorLogFile -Value "$timestamp $Message"
@@ -169,13 +169,19 @@ Function LöscheDrucker {
 LöscheDrucker
 
 #Synchronisierung der Uhrzeit
-Function Uhrzeit {
+function Uhrzeit {
     try {
         Write-Output "Uhrzeit wird synchronisiert..."
-        net stop w32time >$null 2>&1
-        net start w32time >$null 2>&1
-        W32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL >$null 2>&1
-        W32tm /config /update >$null 2>&1
+        $service = Get-Service w32time -ErrorAction Stop
+        if ($service.Status -eq "Running") {
+            net stop w32time | Out-Null
+        }
+        if ((Get-Service w32time).Status -ne "Running") {
+            net start w32time | Out-Null
+        }
+        w32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL | Out-Null
+        w32tm /config /update | Out-Null
+        w32tm /resync | Out-Null
     }
     catch { Write-ErrorLog $_.Exception.Message }
 }
@@ -752,7 +758,7 @@ Function Test-ForcedError {
         Write-ErrorLog $_.Exception.Message
     }
 }
-Test-ForcedError
+#Test-ForcedError
 
 #--------------------------------------------------------------------------
 
