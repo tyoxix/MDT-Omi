@@ -174,16 +174,25 @@ function Uhrzeit {
         Write-Output "Uhrzeit wird synchronisiert..."
         $service = Get-Service w32time -ErrorAction Stop
         if ($service.Status -eq "Running") {
-            net stop w32time | Out-Null
+            $output = & net stop w32time
+            if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }
         }
         if ((Get-Service w32time).Status -ne "Running") {
-            net start w32time | Out-Null
+            $output = & net start w32time
+            if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }
         }
-        w32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL | Out-Null
-        w32tm /config /update | Out-Null
-        w32tm /resync | Out-Null
+        $output = & w32tm /config /manualpeerlist:time.windows.com,0x8 /syncfromflags:MANUAL
+        if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }
+
+        $output = & w32tm /config /update
+        if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }
+
+        $output = & w32tm /resync
+        if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }              
     }
-    catch { Write-ErrorLog $_.Exception.Message }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 Uhrzeit
 
@@ -448,11 +457,21 @@ Tempslöschen
 
 #--------------------------------------------------------------------------
 
-#Windows Aktivierung
-try {
-    Start-Process -FilePath "cscript.exe" -ArgumentList "//nologo $env:windir\system32\slmgr.vbs -ato" -NoNewWindow -Wait
+# Windows Aktivierung mit Fehlerauswertung
+Function windowsaktivieren {
+    try {
+        $output = & cscript.exe //nologo $env:windir\system32\slmgr.vbs -ato
+        $output | Write-Output
+        if ($output -match "Fehler:|Error:") {
+            $hinweis = "Das Gerät besitzt keine Lizenz für die installierte Windows Version. Wähle das MDT-Image mit der übereinstimmenden Windows Version."
+            throw ($output -join "`n") + $hinweis
+        }
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
-catch { Write-ErrorLog $_.Exception.Message }
+windowsaktivieren
 
 #--------------------------------------------------------------------------
 Write-Output "Benötigte Software wird installiert..."
@@ -508,12 +527,21 @@ Function InstalliereLenovoVantage {
     try {
         $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer.ToLower()
         $systemModel = (Get-WmiObject -Class Win32_ComputerSystem).Model.ToUpper()
+		#Modellnummern müssen bei neuen Modellen entsprechend den Think- Modellnummern aktualisiert werden
         if ($systemManufacturer -like "*lenovo*") {
-            if ($systemModel -like "20*" -or $systemModel -like "21*") {
-                # Lenovo Commercial Vantage (Think-)
+            if (
+                $systemModel -like "10*" -or
+                $systemModel -like "11*" -or
+                $systemModel -like "20*" -or
+                $systemModel -like "21*" -or
+                $systemModel -like "30*" -or
+                $systemModel -like "31*" -or
+                $systemModel -like "32*"
+            ) {
+                #Lenovo Commercial Vantage (Think-Serien)
                 winget install -e --id 9NR5B8GVVM13 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
             } else {
-                # Lenovo Vantage (Idea-)
+                #Lenovo Vantage (Consumer-Serien)
                 winget install -e --id 9WZDNCRFJ4MV --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
             }
         }
@@ -738,6 +766,7 @@ Function UACAktivieren {
 }
 UACAktivieren
 
+#Wiederherstellungspunkt
 Function WiederherstellungspunktErstellen {
     try {
         Write-Output "Wiederherstellungspunkt wird erstellt..."
@@ -749,6 +778,7 @@ Function WiederherstellungspunktErstellen {
 }
 WiederherstellungspunktErstellen
 
+#Aktiviere um Funktion des try/catch logs zu testen
 Function Test-ForcedError {
     try {
         # Das funktioniert garantiert nicht
@@ -762,6 +792,7 @@ Function Test-ForcedError {
 
 #--------------------------------------------------------------------------
 
+#Abschliessende Commands
 try {
     Remove-Item -Path $MyInvocation.MyCommand.Source -Force
 } catch { Write-ErrorLog $_.Exception.Message }

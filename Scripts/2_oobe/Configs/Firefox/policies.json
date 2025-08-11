@@ -1,0 +1,55 @@
+{
+  "policies": {
+    "BackgroundAppUpdate": true,
+    "Bookmarks": [
+      {
+        "Favicon": "https://www.google.ch",
+        "Placement": "toolbar",
+        "Title": "Google",
+        "URL": "https://www.google.ch"
+      },
+      {
+        "Favicon": "https://www.omikron.ch",
+        "Placement": "toolbar",
+        "Title": "Omikron Data AG",
+        "URL": "https://www.omikron.ch"
+      }
+    ],
+    "DisableFirefoxStudies": true,
+    "DisableTelemetry": true,
+    "DisplayBookmarksToolbar": "always",
+    "DontCheckDefaultBrowser": true,
+    "FirefoxHome": {
+      "Highlights": false,
+      "Pocket": false,
+      "Search": true,
+      "SponsoredPocket": false,
+      "SponsoredTopSites": false,
+      "TopSites": true
+    },
+    "Homepage": {
+      "StartPage": "homepage",
+      "URL": "https://www.google.ch"
+    },
+    "NoDefaultBookmarks": true,
+    "OverrideFirstRunPage": "https://www.google.ch",
+    "OverridePostUpdatePage": "https://www.google.ch",
+    "Preferences": {
+      "security.ssl.errorReporting.enabled": {
+        "Status": "locked",
+        "Type": "boolean",
+        "Value": false
+      }
+    },
+    "ShowHomeButton": true,
+    "SkipTermsOfUse": true,
+    "SupportMenu": {
+      "AccessKey": "O",
+      "Title": "Omikron Data AG",
+      "URL": "https://www.omikron.ch"
+    },
+    "UserMessaging": {
+      "SkipOnboarding": true
+    }
+  }
+}
