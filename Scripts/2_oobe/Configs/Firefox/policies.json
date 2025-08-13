@@ -34,13 +34,6 @@
     "NoDefaultBookmarks": true,
     "OverrideFirstRunPage": "https://www.google.ch",
     "OverridePostUpdatePage": "https://www.google.ch",
-    "Preferences": {
-      "security.ssl.errorReporting.enabled": {
-        "Status": "locked",
-        "Type": "boolean",
-        "Value": false
-      }
-    },
     "ShowHomeButton": true,
     "SkipTermsOfUse": true,
     "SupportMenu": {

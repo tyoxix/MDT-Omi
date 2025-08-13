@@ -735,6 +735,27 @@ Function OmikronFernwartungVerknuepfen {
 }
 OmikronFernwartungVerknuepfen
 
+#VLC Konfiguration
+function VLCconfig {
+    # Pfad ins Roaming-AppData des aktuellen Users
+    $vlcPath = Join-Path $env:APPDATA "vlc"
+    $vlcrc   = Join-Path $vlcPath "vlcrc"
+
+    #Ordner anlegen, falls nicht vorhanden
+    if (-not (Test-Path $vlcPath)) {
+        New-Item -ItemType Directory -Path $vlcPath -Force | Out-Null
+    }
+
+    #Config als Array
+    $configLines = @(
+        "qt-privacy-ask=0"
+        "qt-privacy-asklater=0"
+    )
+    #Datei speichern
+    Set-Content -Path $vlcrc -Value $configLines -Encoding ASCII
+}
+VLCconfig
+
 #Taskleiste bereinigen
 Function TaskleisteLeeren {
     try {
