@@ -1,6 +1,6 @@
 <#
 Autor: Tobias Hösli / Omikron Data AG
-Letzte Änderungen: 04.08.2025
+Letzte Änderungen: 15.08.2025, th
 
 https://github.com/tyoxix/MDT-Omi/wiki/MDT-Omikron-WIKI
 #>
@@ -16,8 +16,10 @@ Function Adminneustart {
 }
 Adminneustart
 
+#Preferences
 $ConfirmPreference = "None"
 $ErrorActionPreference = "Stop"
+$VerbosePreference = "SilentlyContinue"
 
 #Try/Catch Error Log für Desktop
 Function Write-ErrorLog {
@@ -147,10 +149,10 @@ Function löschetastaturen {
     try {
         Write-Output "Französisch (Schweiz) Tastaturlayout wird entfernt..."
         $langs = Get-WinUserLanguageList
-        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "fr-CH"}) -Force
+        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "fr-CH"}) -Force  | Out-Null
         Write-Output "Deutsch (Deutschland) Tastaturlayout wird entfernt..."
         $langs = Get-WinUserLanguageList
-        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "de-DE"}) -Force
+        Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "de-DE"}) -Force  | Out-Null
     }
     catch { Write-ErrorLog $_.Exception.Message }
 }
@@ -485,15 +487,6 @@ Function Installiere7Zip {
     }
 }
 Installiere7Zip
-Function InstalliereTeamViewerHost {
-    try {
-        winget install -e --id TeamViewer.TeamViewer.Host --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
-    }
-    catch {
-        Write-ErrorLog $_.Exception.Message
-    }
-}
-InstalliereTeamViewerHost
 Function InstalliereAdobeAcrobatReader {
     try {
         winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
@@ -532,6 +525,7 @@ Function InstalliereLenovoVantage {
             if (
                 $systemModel -like "10*" -or
                 $systemModel -like "11*" -or
+                $systemModel -like "12*" -or
                 $systemModel -like "20*" -or
                 $systemModel -like "21*" -or
                 $systemModel -like "30*" -or
@@ -716,45 +710,95 @@ Function LöscheDesktop {
 }
 LöscheDesktop
 
-#Teamviewer auf Desktop
-Function OmikronFernwartungVerknuepfen {
+#Konfiguriert Teamviewer so, dass der Dienst nur startet, wenn der Benutzer den Link öffnet
+function TeamViewer {
+    param (
+        $vbsPath = "C:\Program Files\TeamViewer\omikron_tv_start.vbs",
+        $shortcutPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk",
+        $iconPath = "C:\Program Files\TeamViewer\TeamViewer.exe",
+        $backupShortcutPath = "C:\Program Files\TeamViewer\Omikron Fernwartung.lnk",
+        $dir = "C:\Program Files\TeamViewer"
+    )
+    #Teamviewer Dienst auf Manuell
+    Set-Service -Name "TeamViewer" -StartupType Manual
+
+    #Inhalt als Array
+    $vbsContent = @(
+        "' Autor: Tobias Hoesli / Omikron Data AG"
+        "' Letzte Änderungen: 15.08.2025"
+        "' !DO NOT DELETE! is used for a working desktop link: Starts both service and GUI"
+        "' !NICHT LOESCHEN! wird für den funktionierenden Desktoplink verwendet: Startet sowohl Dienst als auch GUI"
+        'Set WshShell = CreateObject("WScript.Shell")'
+        "' Erst Dienst starten"
+        'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe"" --ControlServiceStart", 0, True'
+        "' 2 Sekunden warten, damit der Dienst hochkommt"
+        'WScript.Sleep 2000'
+        "' Dann GUI starten"
+        'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe""", 0, False'
+    )
+    #Datei schreiben
+    Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
+
+    #Shortcut auf Desktop
+    $wshell = New-Object -ComObject WScript.Shell
+    $shortcut = $wshell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = "wscript.exe"
+    $shortcut.Arguments = "`"$vbsPath`""
+    $shortcut.IconLocation = $iconPath
+    $shortcut.WorkingDirectory = $dir
+    $shortcut.Save()
+
+    #Shortcut im TeamViewer-Ordner (Backup)
+    $backupShortcut = $wshell.CreateShortcut($backupShortcutPath)
+    $backupShortcut.TargetPath = "wscript.exe"
+    $backupShortcut.Arguments = "`"$vbsPath`""
+    $backupShortcut.IconLocation = $iconPath
+    $backupShortcut.WorkingDirectory = $dir
+    $backupShortcut.Save()
+}
+TeamViewer
+
+#VLC Konfiguration
+function VLCconfig {
+    # Pfad ins Roaming-AppData des aktuellen Users
+    $vlcPath = Join-Path $env:APPDATA 'vlc'
+    $vlcrc   = Join-Path $vlcPath 'vlcrc'
     try {
-        Write-Output "Omikron Fernwartung wird auf Desktop verlinkt..."
-        $Path = "C:\Program Files\TeamViewer\TeamViewer.exe"
-        $linkPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk"
-        $wshell = New-Object -ComObject WScript.Shell
-        $shortcut = $wshell.CreateShortcut($linkPath)
-        $shortcut.TargetPath = $Path
-        $shortcut.WorkingDirectory = Split-Path $Path
-        $shortcut.IconLocation = $Path
-        $shortcut.Save()
+        Write-Host "VLC wird konfiguriert..."
+        #Ordner anlegen, falls nicht vorhanden
+        if (-not (Test-Path -LiteralPath $vlcPath)) {
+            New-Item -ItemType Directory -Path $vlcPath -Force | Out-Null
+            Write-Verbose "Ordner erstellt: $vlcPath"
+        }
+        #Config als Array
+        $configLines = @(
+            'qt-privacy-ask=0'
+            'qt-privacy-asklater=0'
+        )
+        #Datei schreiben
+        Set-Content -Path $vlcrc -Value $configLines -Encoding ASCII -Force
+        Write-Verbose "Konfiguration geschrieben nach: $vlcrc"
     }
     catch {
         Write-ErrorLog $_.Exception.Message
     }
 }
-OmikronFernwartungVerknuepfen
-
-#VLC Konfiguration
-function VLCconfig {
-    # Pfad ins Roaming-AppData des aktuellen Users
-    $vlcPath = Join-Path $env:APPDATA "vlc"
-    $vlcrc   = Join-Path $vlcPath "vlcrc"
-
-    #Ordner anlegen, falls nicht vorhanden
-    if (-not (Test-Path $vlcPath)) {
-        New-Item -ItemType Directory -Path $vlcPath -Force | Out-Null
-    }
-
-    #Config als Array
-    $configLines = @(
-        "qt-privacy-ask=0"
-        "qt-privacy-asklater=0"
-    )
-    #Datei speichern
-    Set-Content -Path $vlcrc -Value $configLines -Encoding ASCII
-}
 VLCconfig
+
+#AcrobatReader Willkommenscreen deaktivieren
+function Adobeconfig {
+    param (
+        $regPath = "HKLM:\SOFTWARE\WOW6432Node\Policies\Adobe\Acrobat Reader\DC\FeatureLockDown"
+    )
+    #Falls der Pfad nicht existiert, erstellen
+    if (-not (Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $regPath -Name "bToggleFTE"    -Value 1 -PropertyType DWORD -Force | Out-Null
+    New-ItemProperty -Path $regPath -Name "bWhatsNewExp"  -Value 1 -PropertyType DWORD -Force | Out-Null
+    Write-Host "Adobe Acrobat Reader wird konfiguriert..."
+}
+Adobeconfig
 
 #Taskleiste bereinigen
 Function TaskleisteLeeren {
@@ -790,8 +834,17 @@ UACAktivieren
 #Wiederherstellungspunkt
 Function WiederherstellungspunktErstellen {
     try {
+        #24h-Restorepoint Limite deaktiviert
+        Write-Verbose "24h-Limit für Wiederherstellungspunkt wird deaktiviert..."
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" -Name "SystemRestorePointCreationFrequency" -Value 0 -Type DWord
+
+        #Preloadfix Wiederherstellungspunkt erstellen
         Write-Output "Wiederherstellungspunkt wird erstellt..."
-        Checkpoint-Computer -Description "Omikron Data AG Scriptfix" -RestorePointType "MODIFY_SETTINGS"
+        Checkpoint-Computer -Description "Omikron Data AG Preloadfix" -RestorePointType "MODIFY_SETTINGS"
+
+        #24h-Restorepoint Limite wieder aktiviert
+        Write-Verbose "24h-Limit wird wieder aktiviert..."
+        Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" -Name "SystemRestorePointCreationFrequency" -ErrorAction Stop
     }
     catch {
         Write-ErrorLog $_.Exception.Message
@@ -802,7 +855,7 @@ WiederherstellungspunktErstellen
 #Aktiviere um Funktion des try/catch logs zu testen
 Function Test-ForcedError {
     try {
-        # Das funktioniert garantiert nicht
+        #Das funktioniert garantiert nicht
         Remove-Item "C:\DateiDieNichtExistiert.txt"
     }
     catch {

@@ -3,13 +3,11 @@
     "BackgroundAppUpdate": true,
     "Bookmarks": [
       {
-        "Favicon": "https://www.google.ch",
         "Placement": "toolbar",
         "Title": "Google",
-        "URL": "https://www.google.ch"
+        "URL": "https://www.google.com"
       },
       {
-        "Favicon": "https://www.omikron.ch",
         "Placement": "toolbar",
         "Title": "Omikron Data AG",
         "URL": "https://www.omikron.ch"

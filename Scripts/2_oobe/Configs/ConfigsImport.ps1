@@ -2,16 +2,16 @@ $ConfirmPreference = "None"
 $ErrorActionPreference = "Stop"
 $VerbosePreference = "Continue"
 
-Start-Transcript -Path "\\\MDTOMI-WS1\DeploymentShare$\Scripts\ConfigsImport.log"
+Start-Transcript -Path "C:\Windows\MDT\ConfigsImport.log"
 
-function FirefoxConfig {
+function FirefoxConfig { 
     param (
-        $SourcePolicy = "C:\Users\User\Desktop\policies.json",
+        $SourcePolicy = "\\MDTOMI-WS1\DeploymentShare$\Scripts\policies.json", #policies.json kann am einfachsten mit dem Firefox Add-on "Enterprise Policy Generator" erstellt werden
         $firefoxPath = "C:\Program Files\Mozilla Firefox"
     )
     Write-Host "Firefox wird konfiguriert..." 
     $distributionPath = Join-Path $firefoxPath "distribution"
-    $destFile = Join-Path $distributionPath "policies.json"
+    $destFile = Join-Path $distributionPath "policies.json" 
     #Quelle prüfen
     if (-not (Test-Path -Path $SourcePolicy -PathType Leaf)) {
         Write-Host "FEHLER: Quelle nicht gefunden: $SourcePolicy"

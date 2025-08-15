@@ -44,7 +44,6 @@ function Log-Command {
 Log-Command 'choco install adobereader -y'
 Log-Command 'choco install firefox -y'
 Log-Command 'choco install vlc -y'
-Log-Command 'choco install teamviewer.host -y'
 Log-Command 'choco install 7zip -y'
 
 "--- Skript beendet: $(Get-Date) | $hostname --- | $os --- | $hersteller $modell ---" | Out-File -FilePath $log -Encoding utf8 -Append
