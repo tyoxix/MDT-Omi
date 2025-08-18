@@ -1,6 +1,6 @@
 <#
 Autor: Tobias Hösli / Omikron Data AG
-Letzte Änderungen: 15.08.2025, th
+Letzte Änderungen: 18.08.2025, th
 
 https://github.com/tyoxix/MDT-Omi/wiki/MDT-Omikron-WIKI
 #>
@@ -420,7 +420,7 @@ Function EdgeDebloat{
     }
     catch { Write-ErrorLog $_.Exception.Message }
 } 
-EdgeDebloat 
+EdgeDebloat
 
 #Media Player deaktivieren
 Function MediaPlayerDeaktivieren {
@@ -433,6 +433,26 @@ Function MediaPlayerDeaktivieren {
     }
 }
 MediaPlayerDeaktivieren
+
+#IPv4 über IPv6 priorisieren
+Function Set-IPv4Preferred {
+    try {
+        Write-Output "IPv4 wird gegenüber IPv6 bevorzugt..."
+
+        #Registry-Zweig sicherstellen
+        $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters"
+        if (-not (Test-Path -LiteralPath $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
+
+        Set-ItemProperty -Path $regPath -Name "DisabledComponents" -Type DWord -Value 0x20
+        Write-Verbose "DisabledComponents=0x20 geschrieben."
+    }
+    catch {
+        Write-ErrorLog "Fehler beim Setzen der IPv4/IPv6-Präferenz: $($_.Exception.Message)"
+    }
+}
+Set-IPv4Preferred
 
 #---------------------------------------------------------------------------
 
@@ -545,22 +565,6 @@ Function InstalliereLenovoVantage {
     }
 }
 InstalliereLenovoVantage
-
-function Install-IfManufacturerMulti {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string[]]$RequiredManufacturers,
-        [Parameter(Mandatory=$true)]
-        [string]$InstallCommand
-    )
-    $systemManufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
-    foreach ($req in $RequiredManufacturers) {
-        if ($systemManufacturer -like "*$req*") {
-            Invoke-Expression $InstallCommand
-            break
-        }
-    }
-}
 
 #Acer (Care Center S)
 Function InstalliereAcerCareCenter {
@@ -714,47 +718,64 @@ LöscheDesktop
 function TeamViewer {
     param (
         $vbsPath = "C:\Program Files\TeamViewer\omikron_tv_start.vbs",
-        $shortcutPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk",
         $iconPath = "C:\Program Files\TeamViewer\TeamViewer.exe",
+        $shortcutPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk",
         $backupShortcutPath = "C:\Program Files\TeamViewer\Omikron Fernwartung.lnk",
+        $startMenuShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\TeamViewer.lnk",
         $dir = "C:\Program Files\TeamViewer"
     )
-    #Teamviewer Dienst auf Manuell
-    Set-Service -Name "TeamViewer" -StartupType Manual
+    try {
+        #Teamviewer Dienst auf Manuell
+        Set-Service -Name "TeamViewer" -StartupType Manual
 
-    #Inhalt als Array
-    $vbsContent = @(
-        "' Autor: Tobias Hoesli / Omikron Data AG"
-        "' Letzte Änderungen: 15.08.2025"
-        "' !DO NOT DELETE! is used for a working desktop link: Starts both service and GUI"
-        "' !NICHT LOESCHEN! wird für den funktionierenden Desktoplink verwendet: Startet sowohl Dienst als auch GUI"
-        'Set WshShell = CreateObject("WScript.Shell")'
-        "' Erst Dienst starten"
-        'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe"" --ControlServiceStart", 0, True'
-        "' 2 Sekunden warten, damit der Dienst hochkommt"
-        'WScript.Sleep 2000'
-        "' Dann GUI starten"
-        'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe""", 0, False'
-    )
-    #Datei schreiben
-    Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
+        #Inhalt als Array
+        $vbsContent = @(
+            "' Autor: Tobias Hoesli / Omikron Data AG"
+            "' Letzte Änderungen: 15.08.2025"
+            "' !DO NOT DELETE! is used for a working desktop link: Starts both service and GUI"
+            "' !NICHT LOESCHEN! wird für den funktionierenden Desktoplink verwendet: Startet sowohl Dienst als auch GUI"
+            'Set WshShell = CreateObject("WScript.Shell")'
+            "' Erst Dienst starten"
+            'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe"" --ControlServiceStart", 0, True'
+            "' 2 Sekunden warten, damit der Dienst hochkommt"
+            'WScript.Sleep 2000'
+            "' Dann GUI starten"
+            'WshShell.Run """C:\Program Files\TeamViewer\TeamViewer.exe""", 0, False'
+        )
+        #Datei schreiben
+        Set-Content -Path $vbsPath -Value $vbsContent -Encoding ASCII
 
-    #Shortcut auf Desktop
-    $wshell = New-Object -ComObject WScript.Shell
-    $shortcut = $wshell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = "wscript.exe"
-    $shortcut.Arguments = "`"$vbsPath`""
-    $shortcut.IconLocation = $iconPath
-    $shortcut.WorkingDirectory = $dir
-    $shortcut.Save()
+        #Shortcut auf Desktop
+        $wshell = New-Object -ComObject WScript.Shell
+        $shortcut = $wshell.CreateShortcut($shortcutPath)
+        $shortcut.TargetPath = "wscript.exe"
+        $shortcut.Arguments = "`"$vbsPath`""
+        $shortcut.IconLocation = $iconPath
+        $shortcut.WorkingDirectory = $dir
+        $smShortcut.Description = "TeamViewer"
+        $shortcut.Save()
 
-    #Shortcut im TeamViewer-Ordner (Backup)
-    $backupShortcut = $wshell.CreateShortcut($backupShortcutPath)
-    $backupShortcut.TargetPath = "wscript.exe"
-    $backupShortcut.Arguments = "`"$vbsPath`""
-    $backupShortcut.IconLocation = $iconPath
-    $backupShortcut.WorkingDirectory = $dir
-    $backupShortcut.Save()
+        #Shortcut im TeamViewer-Ordner (Backup)
+        $backupShortcut = $wshell.CreateShortcut($backupShortcutPath)
+        $backupShortcut.TargetPath = "wscript.exe"
+        $backupShortcut.Arguments = "`"$vbsPath`""
+        $backupShortcut.IconLocation = $iconPath
+        $backupShortcut.WorkingDirectory = $dir
+        $smShortcut.Description = "TeamViewer"
+        $backupShortcut.Save()
+
+        #Shortcut für den Start (Suche und Programmliste) anpassen
+        $smShortcut = $wshell.CreateShortcut($startMenuShortcutPath)
+        $smShortcut.TargetPath = "wscript.exe"
+        $smShortcut.Arguments = "`"$vbsPath`""
+        $smShortcut.IconLocation = $iconPath
+        $smShortcut.WorkingDirectory = $dir
+        $smShortcut.Description = "Omikron Fernwartung"
+        $smShortcut.Save()
+    }
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 TeamViewer
 
@@ -790,13 +811,18 @@ function Adobeconfig {
     param (
         $regPath = "HKLM:\SOFTWARE\WOW6432Node\Policies\Adobe\Acrobat Reader\DC\FeatureLockDown"
     )
-    #Falls der Pfad nicht existiert, erstellen
-    if (-not (Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
+    try {
+        Write-Host "Adobe Acrobat Reader wird konfiguriert..."
+        #Falls der Pfad nicht existiert, erstellen
+        if (-not (Test-Path $regPath)) {
+            New-Item -Path $regPath -Force | Out-Null
+        }
+        New-ItemProperty -Path $regPath -Name "bToggleFTE"   -Value 1 -PropertyType DWORD -Force | Out-Null
+        New-ItemProperty -Path $regPath -Name "bWhatsNewExp" -Value 1 -PropertyType DWORD -Force | Out-Null
     }
-    New-ItemProperty -Path $regPath -Name "bToggleFTE"    -Value 1 -PropertyType DWORD -Force | Out-Null
-    New-ItemProperty -Path $regPath -Name "bWhatsNewExp"  -Value 1 -PropertyType DWORD -Force | Out-Null
-    Write-Host "Adobe Acrobat Reader wird konfiguriert..."
+    catch {
+        Write-ErrorLog $_.Exception.Message
+    }
 }
 Adobeconfig
 
