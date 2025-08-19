@@ -1,0 +1,112 @@
+<job id="ZTISelectBootDisk">
+	<script language="VBScript" src="ZTIUtility.vbs"/>
+	<script language="VBScript" src="ZTIDiskUtility.vbs"/>
+	<script language="VBScript">
+
+' // ***************************************************************************
+' // 
+' // Copyright (c) Microsoft Corporation.  All rights reserved.
+' // 
+' // Microsoft Deployment Toolkit Solution Accelerator
+' //
+' // File:      ZTISelectBootDisk.wsf
+' // 
+' // Version:   Custom, angepasst durch Tobias Hösli, Omikron Data AG / 19.08.2025
+' // 
+' // Purpose:   Given a collection of Storage Devices on a machine,
+' //            this program will assist in finding the correct 
+' //            device to be processed by "ZTIDiskPart.wsf"
+' // 
+' // WARNING:   If there are any *other* disks that need to be Cleaned
+' //            and formatted, they should be processed first. 
+' //            And this the global Variable OSDDiskIndex should be
+' //            set to <blank> when done being processed by ZTIDiskPart.wsf.
+' // 
+' // Variables: 
+' //   OSDDiskIndex           [ Output ]  - Disk Index
+' //   OSBootDiskOverrideWQL              - WMI Query Language for Win32_DiskPartition  
+' //      " WHERE Size < 100000000000 and InterfaceType = "IDE"  and MediaType != "Removable Media""
+' //      " WHERE Model like "INTEL SSD%""
+' //
+' // Usage: 
+' //   cscript.exe [//nologo] ZTISelectBootDisk.wsf [/debug:true]
+' //   cscript.exe [//nologo] ZTIDiskPart.wsf [/debug:true]
+' //   cscript.exe [//nologo] ZTISetVariable.wsf [/debug:true] /OSDDiskIndex:""
+' //
+' // ***************************************************************************
+
+Option Explicit
+RunNewInstance
+
+'//----------------------------------------------------------------------------
+'//  Main Class
+'//----------------------------------------------------------------------------
+
+Class ZTISelectBootDisk
+
+	'//----------------------------------------------------------------------------
+	'//  Main routine
+	'//----------------------------------------------------------------------------
+
+	Function Main
+
+		Dim oWMIDisk
+		Dim bFound
+		Dim oDiskPartBoot
+
+		oLogging.CreateEntry "---------------- Initialization ----------------", LogTypeInfo
+
+		IF oEnvironment.Item("DEPLOYMENTTYPE") <> "NEWCOMPUTER" Then
+			oLogging.ReportFailure "Not a new computer scenario, exiting Select Boot Disk.", 7700
+		End If
+
+		bFound = FAILURE
+
+		''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+		'
+		'  1st Pass - Find any disk that matches the Query  "Select * From Win32_diskPartition %OSBootDiskOverrideWQL%"
+		'
+
+		If oEnvironment.Item("OSBootDiskOverrideWQL") <> "" then
+			oLogging.CreateEntry "Search for: [ " & oEnvironment.Item("OSBootDiskOverrideWQL") & " ] ", LogTypeInfo
+			For each oWMIDisk in AllDiskDrivesEx(oEnvironment.Item("OSBootDiskOverrideWQL"))
+
+				'
+				' Custom Processing here, add code to help select the OS Boot Disk.
+				'    oWMIDisk is Win32_DiskDrive class.
+				'
+
+				If bFound = SUCCESS then
+					oLogging.CreateEntry "Pass1: There is another disk that meets the Boot Criteria: " & oWMIDisk.Path_, LogTypeInfo
+				Else
+					oEnvironment.Item("OSDDiskIndex") = oWMIDisk.Index
+					bFound = SUCCESS
+				End if
+
+			next
+		End if
+
+		''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+		'
+		'  2nd pass - Use the 1st Partition larger than 15GB on the first disk with a bootable partition.
+		'
+
+		If bFound = FAILURE then
+			oLogging.CreateEntry "No drive was found using search parameters, Use the 1st \Windows Partition found.", LogTypeInfo
+
+			set oDiskPartBoot = GetBootDriveEx( false, oEnvironment.Item("ImageBuild"), false )
+			If not oDiskPartBoot is nothing then 
+				oEnvironment.Item("OSDDiskIndex") = oDiskPartBoot.Disk
+				bFound = SUCCESS
+			End if
+		End if
+
+		TestAndLog bFound = SUCCESS, "Verify OSDDiskIndex was found and set: " & oEnvironment.Item("OSDDiskIndex")
+		Main = bFound
+
+	End Function
+
+End class
+
+	</script>
+</job>
