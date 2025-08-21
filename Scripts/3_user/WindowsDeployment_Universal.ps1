@@ -1,6 +1,6 @@
 <#
 Autor: Tobias Hösli / Omikron Data AG
-Letzte Änderungen: 18.08.2025, th
+Letzte Änderungen: 21.08.2025, th
 
 https://github.com/tyoxix/MDT-Omi/wiki/MDT-Omikron-WIKI
 #>
@@ -20,17 +20,35 @@ Adminneustart
 $ConfirmPreference = "None"
 $ErrorActionPreference = "Stop"
 $VerbosePreference = "SilentlyContinue"
+$ProgressPreference = "SilentlyContinue"
 
 #Try/Catch Error Log für Desktop
 Function Write-ErrorLog {
-    param([string]$Message)
+    param(
+        [Parameter(Mandatory=$true)]
+        $ErrorRecord
+    )
+
     $ErrorLogFile = "$env:USERPROFILE\Desktop\preload_errors.log"
-    # Prüfen, ob Datei existiert, falls nicht, Hinweis schreiben
+
+    # Funktionsname automatisch ermitteln
+    $fn = (Get-PSCallStack)[1].FunctionName
+    if (-not $fn) { $fn = '<Global>' }
+
+    # HResult als Hex-Code
+    $hr = ('0x{0:X8}' -f ($ErrorRecord.Exception.HResult -band 0xffffffff))
+    # InnerException (falls vorhanden)
+    $inner = if ($ErrorRecord.Exception.InnerException) { " | Inner: " + $ErrorRecord.Exception.InnerException.Message } else { "" }
+    # Detaildump des ErrorRecords
+    $details = ($ErrorRecord | Format-List * -Force | Out-String)
+
     if (!(Test-Path $ErrorLogFile)) {
-        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Ausrollens des Preloads aufgetreten sind.`nSollte der untenstehende Fehler wiederholt auftreten, erstelle bitte ein Ticket im Ticketsystem (helpdesk.omikron.ch) in der Gruppe MDT. Füge eine kurze Beschreibung des Problems, die Datei preload_errors.log sowie die LOG-Dateien aus C:\Windows\MDT bei.`r`n"
+        Add-Content -Path $ErrorLogFile -Value "Hinweis: Diese Datei enthält alle Fehler, die während des Preloads aufgetreten sind.`r`n"
     }
+
     $timestamp = Get-Date -Format 'dd-MM-yyyy HH:mm:ss'
-    Add-Content -Path $ErrorLogFile -Value "$timestamp $Message"
+    Add-Content -Path $ErrorLogFile -Value ("{0} function {1}: {2}{3} [Code: {4}]" -f $timestamp, $fn, $ErrorRecord.Exception.Message, $inner, $hr)
+    Add-Content -Path $ErrorLogFile -Value $details
 }
 
 #Errorlog für logdateien
@@ -41,7 +59,7 @@ try {
         New-Item -Path $logFolder -ItemType Directory | Out-Null
     }
 }
-catch { Write-ErrorLog $_.Exception.Message }
+catch { Write-ErrorLog $_ }
 
 clear
 Start-Transcript -Path $logPath
@@ -54,7 +72,7 @@ Function Festplatteumbenennen {
         Write-Output "Windows Festplatte wird umbenannt..."
         Set-Volume -DriveLetter C -NewFileSystemLabel "System"
     }
-    catch { Write-ErrorLog "Function Festplatteumbenennen: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 Festplatteumbenennen
 
@@ -71,7 +89,7 @@ Function DieserPCaufDesktop {
         }
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{20D04FE0-3AEA-1069-A2D8-08002B30309D}" -Type DWord -Value 0
     }
-    catch { Write-ErrorLog "Function DieserPCaufDesktop: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 DieserPCaufDesktop
 
@@ -88,7 +106,7 @@ Function BenutzerordneraufDesktop {
         }
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel" -Name "{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Type DWord -Value 0
     }
-    catch { Write-ErrorLog "Function BenutzerordneraufDesktop: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 BenutzerordneraufDesktop
 
@@ -102,7 +120,7 @@ Function SystemsteuerungKleineSymbole {
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "StartupPage" -Type DWord -Value 1
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel" -Name "AllItemsIconView" -Type DWord -Value 1
     }
-    catch { Write-ErrorLog "Function SystemsteuerungKleineSymbole: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 SystemsteuerungKleineSymbole
 
@@ -116,7 +134,7 @@ Function Smartscreendeaktivieren {
         }
         Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\MicrosoftEdge\PhishingFilter" -Name "EnabledV9" -Type DWord -Value 0
     }
-    catch { Write-ErrorLog "Function Smartscreendeaktivieren: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 Smartscreendeaktivieren
 
@@ -130,7 +148,7 @@ Function DarkModeAktivieren {
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppsUseLightTheme" -Type DWord -Value 0
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type DWord -Value 0
     }
-    catch { Write-ErrorLog "Function DarkModeAktivieren: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 DarkModeAktivieren
 
@@ -140,7 +158,7 @@ Function ExplorerfürDieserPC {
         Write-Output "Setze Explorer öffnen für Dieser PC..."
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "LaunchTo" -Type DWord -Value 1 -Force | Out-Null
     }
-    catch { Write-ErrorLog "Function ExplorerfürDieserPC: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 ExplorerfürDieserPC
 
@@ -154,7 +172,7 @@ Function löschetastaturen {
         $langs = Get-WinUserLanguageList
         Set-WinUserLanguageList ($langs | ? {$_.LanguageTag -ne "de-DE"}) -Force  | Out-Null
     }
-    catch { Write-ErrorLog "Function löschetastaturen: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 löschetastaturen
 
@@ -166,7 +184,7 @@ Function LöscheDrucker {
         Write-Output "Microsoft XPS Document Writer Drucker wird entfernt..."
         Disable-WindowsOptionalFeature -Online -FeatureName "Printing-XPSServices-Features" -NoRestart -WarningAction SilentlyContinue | Out-Null
     }
-    catch { Write-ErrorLog "Function LöscheDrucker: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 LöscheDrucker
 
@@ -192,9 +210,7 @@ function Uhrzeit {
         $output = & w32tm /resync
         if ($output -match "Fehler|Error|Failed") { throw ($output -join "`n") }              
     }
-    catch {
-        Write-ErrorLog "function Uhrzeit: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ } 
 }
 Uhrzeit
 
@@ -208,9 +224,7 @@ Function ActionCenterKonfigurieren {
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_GLEAM_ENABLED" -Type DWord -Value 0 -Force | Out-Null
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings" -Name "NOC_GLOBAL_SETTING_BADGE_ENABLED" -Type DWord -Value 0 -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function ActionCenterKonfigurieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 ActionCenterKonfigurieren
 
@@ -224,9 +238,7 @@ Function ExplorerDatenschutzKonfigurieren {
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowRecent" -Type DWord -Value 0 -Force | Out-Null
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "ShowFrequent" -Type DWord -Value 0 -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function ExplorerDatenschutzKonfigurieren " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 ExplorerDatenschutzKonfigurieren
 
@@ -236,9 +248,7 @@ Function DateiendungenAktivieren {
         Write-Output "Dateiendungen werden aktiviert..."
         Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0 -Type DWord -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function DateiendungenAktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 DateiendungenAktivieren
 
@@ -248,9 +258,7 @@ Function SuchleisteAlsLupeAnzeigen {
         Write-Output "Suchleiste als Lupe anzeigen wird aktiviert..."
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "SearchboxTaskbarMode" -Type DWord -Value 1 -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function SuchleisteAlsLupeAnzeigen: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 SuchleisteAlsLupeAnzeigen
 
@@ -268,9 +276,7 @@ Function NumLockDauerhaftAktivieren {
             $wsh.SendKeys('{NUMLOCK}')
         }
     }
-    catch {
-        Write-ErrorLog "Function NumLockDauerhaftAktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 NumLockDauerhaftAktivieren
 
@@ -281,9 +287,7 @@ Function AltesKontextmenueAktivieren {
         New-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Force | Out-Null
         Set-ItemProperty -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "(default)" -Value "" -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function AltesKontextmenueAktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 AltesKontextmenueAktivieren
 
@@ -293,9 +297,7 @@ Function ChatVonTaskleisteEntfernen {
         Write-Output "Chat wird von der Taskleiste entfernt..."
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarMn" -Type DWord -Value 0 | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function ChatVonTaskleisteEntfernen: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 ChatVonTaskleisteEntfernen
 
@@ -313,9 +315,7 @@ Function WebsucheDeaktivieren {
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "BingSearchEnabled" -Type DWord -Value 0
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name "CortanaConsent" -Type DWord -Value 0
     }
-    catch {
-        Write-ErrorLog "Function WebsucheDeaktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 WebsucheDeaktivieren
 
@@ -329,9 +329,7 @@ Function DetailedBsodAktivieren {
         }
         Set-ItemProperty -Path $regPath -Name "DisplayParameters" -Type DWord -Value 1
     }
-    catch {
-        Write-ErrorLog "Function DetailedBsodAktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 DetailedBsodAktivieren
 
@@ -345,9 +343,7 @@ Function Startmenu {
         #Kontobezogene Benachrichtigungen deaktivieren
         Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_AccountNotifications" -Type DWord -Value 0
     }
-    catch {
-        Write-ErrorLog "Function Startmenu: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 Startmenu
 
@@ -365,28 +361,69 @@ Function Energiesparplan {
         powercfg /change disk-timeout-ac 0
         powercfg /change disk-timeout-dc 0
     }
-    catch {
-        Write-ErrorLog "Function Energiesparplan: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 Energiesparplan
 
-#Richtige Festplatte als "Daten" formatieren 
-Function FindDatadrive {
-    	try {
-		$OSDiskNumber = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -Last 1 | Select-Object -ExpandProperty Number
-		$seconddisk = Get-Disk | Where-Object -FilterScript {$_.BusType -ne "USB"} | Sort-Object -Property "Total Size" -Descending | Select-Object -First 1 | Select-Object -ExpandProperty Number
-		if($OSDiskNumber -ne $seconddisk){
-			Initialize-Disk -Number $seconddisk | Out-Null
-			new-partition -disknumber $seconddisk -usemaximumsize | format-volume -filesystem NTFS -newfilesystemlabel Daten | Out-Null
-			Get-WmiObject -Class Win32_volume -Filter 'DriveType=5' | Select-Object -First 1 | Set-WmiInstance -Arguments @{DriveLetter='E:'} | Out-Null
-			Get-CimInstance -classname Win32_volume | ?{$_.Label -eq 'Daten'} | Set-CimInstance -Arguments @{Driveletter="D:"} | Out-Null
-			Write-Output "Sekundäre Festplatte wurde als 'Daten' formatiert"
-		}
-	}
-	catch { 
-		Write-ErrorLog "Function FindDatadrive: Die Datenfestplatte wurde bereits initialisiert. Zur Vermeidung von Datenverlust wurde keine Formatierung ausgeführt. Bestätige den richtigen Datenträger und formatiere ihn nur bei Gewissheit!" + $_.Exception.Message 
-		}
+Function FindDatadrive{
+    param(
+        [string]$TargetLabel = 'Daten',
+        [string]$TargetLetter = 'D'
+    )
+    try {
+        #Wenn "Daten" bereits existiert
+        $osDiskNumber = (Get-Partition -ErrorAction SilentlyContinue | Where-Object DriveLetter -eq 'C' | Select-Object -First 1 -ExpandProperty DiskNumber)
+        $existingVol = Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.FileSystemLabel -eq $TargetLabel } | Select-Object -First 1
+        if ($existingVol) {
+            if ($existingVol.DriveLetter -ne $TargetLetter) {
+                Write-ErrorLog "Function FindDatadrive: '$TargetLabel' bereits auf '$TargetLetter': vorhanden."
+                Write-Verbose "Function FindDatadrive: '$TargetLabel' bereits auf '$TargetLetter': vorhanden."
+            }
+            return
+        }
+
+        #Wenn keine Datenplatte existiert
+        $disk = Get-Disk | Where-Object { $_.BusType -ne 'USB' -and $_.Number -ne $osDiskNumber } |
+                Sort-Object Size -Descending | Select-Object -First 1
+        if (-not $disk) {
+            Write-Verbose "Function FindDatadrive: Keine geeignete zweite Festplatte gefunden: Keine Aktion."
+            return
+        }
+
+        #Prüfen, ob auf der Zieldisk bereits formatierte Volumes existieren
+        $parts = Get-Partition -DiskNumber $disk.Number -ErrorAction SilentlyContinue
+        $hasFs = $false
+        foreach ($p in $parts) {
+            $v = Get-Volume -Partition $p -ErrorAction SilentlyContinue
+            if ($v -and $v.FileSystem) { $hasFs = $true; break }
+        }
+        if ($hasFs) {
+            #Wenn die Datenplatte bereits formatiert wurde
+            Write-ErrorLog "Function FindDatadrive: Die Festplatte #$($disk.Number) wurde bereits formatiert. Zur Vermeidung von Datenverlust wurde keine Formatierung ausgeführt. Bestätige den richtigen Datenträger und formatiere ihn nur bei Gewissheit!"
+            return
+        }
+
+        #Wenn nicht initialisiert
+        if ($disk.PartitionStyle -eq 'RAW') {
+            Initialize-Disk -Number $disk.Number -PartitionStyle GPT| Out-Null
+            Write-Verbose "Disk #$($disk.Number) als GPT initialisiert."
+        }
+
+        #Partition erstellen, formatieren, Label & Buchstabe setzen
+        $p = New-Partition -DiskNumber $disk.Number -UseMaximumSize -AssignDriveLetter
+        $v = Format-Volume -Partition $p -FileSystem NTFS -NewFileSystemLabel $TargetLabel -Confirm:$false
+
+        # Zielbuchstabe nur setzen, wenn frei
+        if (-not (Get-Volume -ErrorAction SilentlyContinue | Where-Object DriveLetter -eq $TargetLetter)) {
+            Set-Partition -PartitionNumber $p.PartitionNumber -DiskNumber $disk.Number -NewDriveLetter $TargetLetter
+            Write-Output "'$TargetLabel' formatiert und als '$TargetLetter' bereitgestellt."
+        } else {
+            Write-ErrorLog "Function FindDatadrive: '$TargetLabel' formatiert. Zielbuchstabe '$TargetLetter' belegt – aktueller Buchstabe: $($v.DriveLetter):"
+        }
+    }
+    catch {
+        catch { Write-ErrorLog $_ }
+    }
 }
 FindDatadrive
 
@@ -418,7 +455,7 @@ Function EdgeDebloat{
             Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Edge" -Name $entry.Name -Type DWord -Value $entry.Value
         }
     }
-    catch { Write-ErrorLog "Function EdgeDebloat: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 } 
 EdgeDebloat
 
@@ -428,9 +465,7 @@ Function MediaPlayerDeaktivieren {
         Write-Host "Windows Media Player wird deaktiviert..."
         Disable-WindowsOptionalFeature -Online -FeatureName WindowsMediaPlayer -NoRestart | Out-Null
     }
-    catch {
-        Write-ErrorLog "Function MediaPlayerDeaktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 MediaPlayerDeaktivieren
 
@@ -438,21 +473,35 @@ MediaPlayerDeaktivieren
 Function Set-IPv4Preferred {
     try {
         Write-Output "IPv4 wird gegenüber IPv6 bevorzugt..."
-
-        #Registry-Zweig sicherstellen
         $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters"
         if (-not (Test-Path -LiteralPath $regPath)) {
             New-Item -Path $regPath -Force | Out-Null
         }
-
         Set-ItemProperty -Path $regPath -Name "DisabledComponents" -Type DWord -Value 0x20
         Write-Verbose "DisabledComponents=0x20 geschrieben."
     }
-    catch {
-        Write-ErrorLog "Function Set-IPv4Preferred: Fehler beim Setzen der IPv4/IPv6-Präferenz: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 Set-IPv4Preferred
+
+Function MicrosoftSoftwareUpdates {
+    try {
+        Write-Output "Updates für andere Microsoft-Produkte erhalten wird aktiviert..."
+        #Policy-Key
+        $AU = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+        if (-not (Test-Path $AU)) { New-Item -Path $AU -Force | Out-Null }
+        New-ItemProperty -Path $AU -Name 'AllowMUUpdateService' -PropertyType DWord -Value 1 -Force | Out-Null
+        Write-Verbose "AllowMUUpdateService = 1 wurde unter HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU gesetzt"
+        #UX-Key (steuert die UI-Anzeige)
+        $UX = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
+        if (-not (Test-Path $UX)) { New-Item -Path $UX -Force | Out-Null }
+        New-ItemProperty -Path $UX -Name 'AllowMUUpdateService' -PropertyType DWord -Value 1 -Force | Out-Null
+        Write-Verbose "AllowMUUpdateService = 1 wurde unter HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings gesetzt"
+        Restart-Service wuauserv -Force
+    }
+    catch { Write-ErrorLog $_ }
+}
+MicrosoftSoftwareUpdates
 
 #---------------------------------------------------------------------------
 
@@ -462,7 +511,7 @@ Function OneDrivelöschen {
         Write-Output "OneDrive wird deinstalliert..."
         Start-Process -FilePath winget -ArgumentList "uninstall -e --purge --accept-source-agreements Microsoft.OneDrive" -NoNewWindow -Wait
     }
-    catch { Write-ErrorLog "Function OneDrivelöschen: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 OneDrivelöschen
 
@@ -473,7 +522,7 @@ Function Tempslöschen {
         $folders = @("C:\Windows\Temp\*", "C:\Users\*\Appdata\Local\Temp\*", "C:\Windows\SoftwareDistribution\Download", "C:\Windows\System32\FNTCACHE.DAT", "C:\Users\*\Documents\WindowsPowerShell", "C:\ProgramData\chocolatey")
         foreach ($folder in $folders) {Remove-Item $folder -force -recurse -ErrorAction SilentlyContinue}
     }
-    catch { Write-ErrorLog "Function Tempslöschen: " + $_.Exception.Message }
+    catch { Write-ErrorLog $_ }
 }
 Tempslöschen
 
@@ -489,9 +538,7 @@ Function windowsaktivieren {
             throw ($output -join "`n") + $hinweis
         }
     }
-    catch {
-        Write-ErrorLog $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 windowsaktivieren
 
@@ -502,36 +549,28 @@ Function Installiere7Zip {
     try {
         winget install -e --id 7zip.7zip --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
     }
-    catch {
-        Write-ErrorLog "Function Installiere7Zip: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 Installiere7Zip
 Function InstalliereAdobeAcrobatReader {
     try {
         winget install -e --id Adobe.Acrobat.Reader.64-bit --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
     }
-    catch {
-        Write-ErrorLog "Function InstalliereAdobeAcrobatReader: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereAdobeAcrobatReader
 Function InstalliereVLC {
     try {
         winget install -e --id VideoLAN.VLC --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
     }
-    catch {
-        Write-ErrorLog "InstalliereAdobeAcrobatReader: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereVLC
 Function InstalliereFirefoxDE {
     try {
         winget install -e --id Mozilla.Firefox.de --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
     }
-    catch {
-        Write-ErrorLog "Function InstalliereFirefoxDE: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereFirefoxDE
 
@@ -560,9 +599,7 @@ Function InstalliereLenovoVantage {
             }
         }
     }
-    catch {
-        Write-ErrorLog "Function InstalliereLenovoVantage: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereLenovoVantage
 
@@ -574,9 +611,7 @@ Function InstalliereAcerCareCenter {
             winget install -e --id 9P8BB54NQNQ4 --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
         }
     }
-    catch {
-        Write-ErrorLog "Function InstalliereAcerCareCenter: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereAcerCareCenter
 
@@ -588,9 +623,7 @@ Function InstalliereHPSupportAssistant {
             choco install hpsupportassistant -y
         }
     }
-    catch {
-        Write-ErrorLog "Function InstalliereHPSupportAssistant: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereHPSupportAssistant
 
@@ -602,9 +635,7 @@ Function InstalliereDellCommandUpdate {
             winget install -e --id Dell.CommandUpdate --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
         }
     }
-    catch {
-        Write-ErrorLog "Function InstalliereDellCommandUpdate: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereDellCommandUpdate
 
@@ -616,9 +647,7 @@ Function InstalliereAsusMyAsus {
             winget install -e --id 9N7R5S6B0ZZH --disable-interactivity --silent --accept-package-agreements --accept-source-agreements
         }
     }
-    catch {
-        Write-ErrorLog "Function InstalliereAsusMyAsus: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 InstalliereAsusMyAsus
 
@@ -708,9 +737,7 @@ Function LöscheDesktop {
         Write-Output "Alle Verknüpfungen auf dem Desktop werden gelöscht..."
         Remove-Item "C:\Users\*\Desktop\*.lnk"
     }
-    catch {
-        Write-ErrorLog "Function LöscheDesktop: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 LöscheDesktop
 
@@ -719,12 +746,13 @@ function TeamViewer {
     param (
         $vbsPath = "C:\Program Files\TeamViewer\omikron_tv_start.vbs",
         $iconPath = "C:\Program Files\TeamViewer\TeamViewer.exe",
-        $shortcutPath = "$env:PUBLIC\Desktop\Omikron Fernwartung.lnk",
+        $shortcutPath = "C:\Users\Public\Desktop\Omikron Fernwartung.lnk",
         $backupShortcutPath = "C:\Program Files\TeamViewer\Omikron Fernwartung.lnk",
         $startMenuShortcutPath = "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\TeamViewer.lnk",
         $dir = "C:\Program Files\TeamViewer"
     )
     try {
+        Write-Output "TeamViewer wird konfiguriert..."
         #Teamviewer Dienst auf Manuell
         Set-Service -Name "TeamViewer" -StartupType Manual
 
@@ -752,7 +780,7 @@ function TeamViewer {
         $shortcut.Arguments = "`"$vbsPath`""
         $shortcut.IconLocation = $iconPath
         $shortcut.WorkingDirectory = $dir
-        $smShortcut.Description = "TeamViewer"
+        $shortcut.Description = "TeamViewer"
         $shortcut.Save()
 
         #Shortcut im TeamViewer-Ordner (Backup)
@@ -761,7 +789,7 @@ function TeamViewer {
         $backupShortcut.Arguments = "`"$vbsPath`""
         $backupShortcut.IconLocation = $iconPath
         $backupShortcut.WorkingDirectory = $dir
-        $smShortcut.Description = "TeamViewer"
+        $backupShortcut.Description = "TeamViewer"
         $backupShortcut.Save()
 
         #Shortcut für den Start (Suche und Programmliste) anpassen
@@ -773,9 +801,7 @@ function TeamViewer {
         $smShortcut.Description = "Omikron Fernwartung"
         $smShortcut.Save()
     }
-    catch {
-        Write-ErrorLog "function TeamViewer: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 TeamViewer
 
@@ -800,9 +826,7 @@ function VLCconfig {
         Set-Content -Path $vlcrc -Value $configLines -Encoding ASCII -Force
         Write-Verbose "Konfiguration geschrieben nach: $vlcrc"
     }
-    catch {
-        Write-ErrorLog "Function VLCconfig: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 VLCconfig
 
@@ -820,9 +844,7 @@ function Adobeconfig {
         New-ItemProperty -Path $regPath -Name "bToggleFTE"   -Value 1 -PropertyType DWORD -Force | Out-Null
         New-ItemProperty -Path $regPath -Name "bWhatsNewExp" -Value 1 -PropertyType DWORD -Force | Out-Null
     }
-    catch {
-        Write-ErrorLog "function Adobeconfig: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 Adobeconfig
 
@@ -839,9 +861,7 @@ Function TaskleisteLeeren {
         New-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband" | Out-Null
         Start-Process explorer.exe
     }
-    catch {
-        Write-ErrorLog "Function TaskleisteLeeren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 TaskleisteLeeren
 
@@ -851,11 +871,11 @@ Function UACAktivieren {
         Write-Output "UAC (Benutzerkontensteuerung) wird wieder aktiviert..."
         Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 1
     }
-    catch {
-        Write-ErrorLog "Function UACAktivieren: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 UACAktivieren
+
+
 
 #Wiederherstellungspunkt
 Function WiederherstellungspunktErstellen {
@@ -871,9 +891,7 @@ Function WiederherstellungspunktErstellen {
         Write-Verbose "24h-Limit wird wieder aktiviert..."
         Remove-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" -Name "SystemRestorePointCreationFrequency" -ErrorAction Stop
     }
-    catch {
-        Write-ErrorLog "Function WiederherstellungspunktErstellen: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 WiederherstellungspunktErstellen
 
@@ -883,9 +901,7 @@ Function Test-ForcedError {
         #Das funktioniert garantiert nicht
         Remove-Item "C:\DateiDieNichtExistiert.txt"
     }
-    catch {
-        Write-ErrorLog "Function Test-ForcedError: " + $_.Exception.Message
-    }
+    catch { Write-ErrorLog $_ }
 }
 #Test-ForcedError
 
@@ -894,13 +910,13 @@ Function Test-ForcedError {
 #Abschliessende Commands
 try {
     Remove-Item -Path $MyInvocation.MyCommand.Source -Force
-} catch { Write-ErrorLog $_.Exception.Message }
+} catch { Write-ErrorLog $_ }
 try {
     Remove-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp\RunPS1.bat" -Force
-} catch { Write-ErrorLog $_.Exception.Message }
+} catch { Write-ErrorLog $_ }
 try {
     stop-transcript
-} catch { Write-ErrorLog $_.Exception.Message }
+} catch { Write-ErrorLog $_ }
 try {
     Restart-Computer
-} catch { Write-ErrorLog $_.Exception.Message }
+} catch { Write-ErrorLog $_ }
